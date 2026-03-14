@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useChat } from "ai/react";
-import Link from "next/link";
+import { useSidebar } from "@/components/SidebarContext";
 
 
 // --- Icons (Lucide-like SVG components) ---
@@ -60,6 +60,14 @@ const TargetIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
+const MicIcon = ({ className = "w-5 h-5" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <line x1="12" x2="12" y1="19" y2="22" />
+  </svg>
+);
+
 const FileTextIcon = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/>
@@ -93,7 +101,7 @@ export default function ChatApp() {
     initialMessages: customInitialMessages,
   });
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -113,84 +121,10 @@ export default function ChatApp() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-sans overflow-hidden">
-      {/* Sidebar Overlay (Mobile) */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-20 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside 
-        className={`${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } fixed md:relative z-30 flex flex-col w-72 h-full bg-zinc-100 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 transition-transform duration-300 ease-in-out`}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-          <button 
-            className="flex items-center gap-2 px-3 py-2 w-full text-sm font-medium bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 rounded-lg transition-colors shadow-sm"
-            onClick={() => {
-              setMessages(customInitialMessages);
-              stop(); // stop any ongoing generation when resetting
-              if (window.innerWidth < 768) setIsSidebarOpen(false);
-            }}
-          >
-            <PlusIcon className="w-4 h-4" />
-            New Chat
-          </button>
-          <button 
-            className="md:hidden p-2 ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-700"
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            <MenuIcon className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3 space-y-1">
-          <div className="px-3 pb-2 pt-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Tools</div>
-          <Link href="/" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 transition-colors font-medium">
-            <MessageIcon className="w-4 h-4" />
-            <span className="truncate">Chat Assistant</span>
-          </Link>
-          <Link href="/jd" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <svg className="w-4 h-4 opacity-70" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></svg>
-            <span className="truncate">JD Generator</span>
-          </Link>
-          <Link href="/ats" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <TargetIcon className="w-4 h-4 opacity-70" />
-            <span className="truncate">ATS Matcher</span>
-          </Link>
-          <Link href="/resume" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <FileTextIcon className="w-4 h-4 opacity-70" />
-            <span className="truncate">Resume Builder</span>
-          </Link>
-
-          <div className="pt-4 pb-2 px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Recent</div>
-          {/* History Item Placeholder */}
-          <div className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <MessageIcon className="w-4 h-4 opacity-70" />
-            <span className="truncate">UI Design Best Practices</span>
-          </div>
-          <div className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <MessageIcon className="w-4 h-4 opacity-70" />
-            <span className="truncate">React State Management</span>
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-          <button className="flex items-center gap-3 px-3 py-2.5 w-full text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <SettingsIcon className="w-5 h-5" />
-            Settings
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-white dark:bg-zinc-900">
-        {/* Header */}
-        <header className="flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10">
+    <>
+      {/* Header */}
+      <header className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-3">
           <button 
             className="p-2 -ml-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 rounded-lg md:hidden transition-colors"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -198,7 +132,18 @@ export default function ChatApp() {
             <MenuIcon className="w-6 h-6" />
           </button>
           <h1 className="font-semibold text-lg tracking-tight">AI Assistant</h1>
-        </header>
+        </div>
+        <button 
+          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg transition-colors border border-transparent dark:border-zinc-700"
+          onClick={() => {
+            setMessages(customInitialMessages);
+            stop();
+          }}
+        >
+          <PlusIcon className="w-4 h-4" />
+          <span className="hidden sm:inline">New Chat</span>
+        </button>
+      </header>
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 mb-4">
@@ -284,7 +229,6 @@ export default function ChatApp() {
             AI Assistant can make mistakes. Consider verifying important information.
           </p>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

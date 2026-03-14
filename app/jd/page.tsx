@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useCompletion } from "ai/react";
-import Link from "next/link";
+import { useSidebar } from "@/components/SidebarContext";
 
 // --- Icons ---
 const BotIcon = ({ className = "w-5 h-5" }) => (
@@ -122,7 +122,7 @@ const renderBoldText = (text: string) => {
 
 
 export default function JDGeneratorApp() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
   
   // Form State
   const [jobTitle, setJobTitle] = useState("");
@@ -157,76 +157,8 @@ Additional Context/Requirements: ${extra || 'Not specified'}
   };
 
   return (
-    <div className="flex h-screen w-full bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-sans overflow-hidden">
-      {/* Sidebar Overlay (Mobile) */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-20 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar - Matching exactly with main app */}
-      <aside 
-        className={`${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } fixed md:relative z-30 flex flex-col w-72 h-full bg-zinc-100 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 transition-transform duration-300 ease-in-out`}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800 h-[69px] shrink-0">
-          <h2 className="font-semibold tracking-tight text-zinc-700 dark:text-zinc-300 pl-2">AI Tools</h2>
-          <button 
-            className="md:hidden p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-700"
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            <MenuIcon className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3 space-y-1">
-          <div className="px-3 pb-2 pt-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Tools</div>
-          <Link href="/" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <MessageIcon className="w-4 h-4 opacity-70" />
-            <span className="truncate">Chat Assistant</span>
-          </Link>
-          <Link href="/jd" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 transition-colors font-medium">
-            <DocumentIcon className="w-4 h-4" />
-            <span className="truncate">JD Generator</span>
-          </Link>
-          <Link href="/ats" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <TargetIcon className="w-4 h-4 opacity-70" />
-            <span className="truncate">ATS Matcher</span>
-          </Link>
-          <Link href="/resume" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <FileTextIcon className="w-4 h-4 opacity-70" />
-            <span className="truncate">Resume Builder</span>
-          </Link>
-          
-          <div className="pt-4 pb-2 px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Templates</div>
-          <div 
-            onClick={() => { setJobTitle("Senior Frontend Engineer"); setExperience("5+ years"); setSkills("React, Next.js, TypeScript"); }}
-            className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium"
-          >
-            <span className="truncate">Frontend Engineer</span>
-          </div>
-          <div 
-            onClick={() => { setJobTitle("Product Manager"); setExperience("3+ years"); setSkills("Agile, Jira, Roadmap planning"); }}
-            className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium"
-          >
-            <span className="truncate">Product Manager</span>
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-          <button className="flex items-center gap-3 px-3 py-2.5 w-full text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <SettingsIcon className="w-5 h-5" />
-            Settings
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-white dark:bg-zinc-900">
-        {/* Header */}
+    <>
+      {/* Header */}
         <header className="flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10 shrink-0 h-[69px]">
           <button 
             className="p-2 -ml-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 rounded-lg md:hidden transition-colors"
@@ -355,7 +287,6 @@ Additional Context/Requirements: ${extra || 'Not specified'}
 
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }
