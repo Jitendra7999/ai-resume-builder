@@ -87,7 +87,7 @@ export function AppSidebar() {
       {/* Sidebar Overlay (Mobile) */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          className="fixed inset-0 bg-black/50 z-20 md:hidden print:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -96,7 +96,7 @@ export function AppSidebar() {
       <aside 
         className={`${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } fixed md:relative z-30 flex flex-col w-72 h-full bg-zinc-100 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 transition-transform duration-300 ease-in-out`}
+        } fixed md:relative z-30 flex flex-col w-72 h-full bg-zinc-100 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 transition-transform duration-300 ease-in-out print:hidden`}
       >
         <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800 h-[69px] shrink-0">
           <h2 className="font-semibold tracking-tight text-zinc-700 dark:text-zinc-300 pl-2">AI Tools</h2>

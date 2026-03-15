@@ -49,19 +49,19 @@ const DocumentIcon = ({ className = "w-5 h-5" }) => (
 
 const TargetIcon = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="12" cy="12" r="10"/>
-    <circle cx="12" cy="12" r="6"/>
-    <circle cx="12" cy="12" r="2"/>
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="6" />
+    <circle cx="12" cy="12" r="2" />
   </svg>
 );
 
 const FileTextIcon = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/>
-    <path d="M14 2v6h6"/>
-    <line x1="16" x2="8" y1="13" y2="13"/>
-    <line x1="16" x2="8" y1="17" y2="17"/>
-    <line x1="10" x2="8" y1="9" y2="9"/>
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z" />
+    <path d="M14 2v6h6" />
+    <line x1="16" x2="8" y1="13" y2="13" />
+    <line x1="16" x2="8" y1="17" y2="17" />
+    <line x1="10" x2="8" y1="9" y2="9" />
   </svg>
 );
 
@@ -80,9 +80,9 @@ const CheckIcon = ({ className = "w-5 h-5" }) => (
 
 const DownloadIcon = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="7 10 12 15 17 10"/>
-    <line x1="12" x2="12" y1="15" y2="3"/>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" x2="12" y1="15" y2="3" />
   </svg>
 );
 
@@ -124,19 +124,19 @@ const renderInlineStyles = (text: string) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={i} className="font-bold text-zinc-900">{part.slice(2, -2)}</strong>;
     }
-    
+
     // Process links in the remaining non-bold text
     const linkParts = part.split(/(\[.*?\]\(.*?\))/g);
     return linkParts.map((linkPart, j) => {
       const match = linkPart.match(/\[(.*?)\]\((.*?)\)/);
       if (match) {
         return (
-          <a 
-            key={`${i}-${j}`} 
-            href={match[2]} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="text-orange-600 hover:text-orange-800 underline decoration-orange-300 underline-offset-2"
+          <a
+            key={`${i}-${j}`}
+            href={match[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-900 font-bold underline underline-offset-2 hover:text-black"
           >
             {match[1]}
           </a>
@@ -150,14 +150,14 @@ const renderInlineStyles = (text: string) => {
 
 export default function ResumeBuilderApp() {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
-  
+
   // Form State
   const [jd, setJd] = useState("");
-  const [personalDetails, setPersonalDetails] = useState("");
-  const [experience, setExperience] = useState("");
-  const [education, setEducation] = useState("");
-  const [projects, setProjects] = useState("");
-  
+  const [personalDetails, setPersonalDetails] = useState("Jitendra Yadav | 7999759371 | jitendra7999yadav@gmail.com | https://www.linkedin.com/in/jitendra-singh-yadav-107490245/");
+  const [experience, setExperience] = useState("FUll Stack Developer At Techstuff Pvt Ltd (Jan 2023 - Present) build develop,deploy full stack web application using react,node express next js , mongodb,nestjs");
+  const [education, setEducation] = useState("B.Tech in Computer Science from RGPV Bhopal University (2017-2021)");
+  const [projects, setProjects] = useState("1. Omkala Notebook (https://omkalanotebook.com): Build a full-stack e-commerce platform using React, Node.js, and MongoDB. Implemented user authentication, product management, and payment gateway integration. 2. Nm Indida bio Website (https://www.nmindiabio.com/): Developed a Full stack webapplication manage daily accounting orders and genereate invoicess on daily basis. 3. Apna Sweets Restro Pos (https://pos.apnasweets.com/auth): Build restro management system to managment dine in walk in order using next, nest, mongodb,tailwindcss.");
+
   const [copied, setCopied] = useState(false);
   const [copiedDoc, setCopiedDoc] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -189,15 +189,15 @@ export default function ResumeBuilderApp() {
     try {
       // Create a blob with the HTML content for rich text pasting into Word/Docs
       const htmlContent = `<div style="font-family: Arial, sans-serif; font-size: 11pt; color: #000; line-height: 1.5;">${contentRef.current.innerHTML}</div>`;
-      
+
       const blobHtml = new Blob([htmlContent], { type: "text/html" });
       const blobText = new Blob([completion], { type: "text/plain" });
-      
+
       const data = [new ClipboardItem({
-          "text/plain": blobText,
-          "text/html": blobHtml,
+        "text/plain": blobText,
+        "text/html": blobHtml,
       })];
-      
+
       await navigator.clipboard.write(data);
       setCopiedDoc(true);
       setTimeout(() => setCopiedDoc(false), 2000);
@@ -219,187 +219,188 @@ export default function ResumeBuilderApp() {
   return (
     <>
       {/* Header */}
-        <header className="flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10 shrink-0 h-[69px] print:hidden">
-          <button 
-            className="p-2 -ml-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 rounded-lg md:hidden transition-colors"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          >
-            <MenuIcon className="w-6 h-6" />
-          </button>
-          <div className="flex items-center gap-2">
-            <FileTextIcon className="w-5 h-5 text-orange-600 dark:text-orange-500" />
-            <h1 className="font-semibold text-lg tracking-tight">Smart Resume Builder</h1>
-          </div>
-        </header>
+      <header className="flex items-center gap-3 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10 shrink-0 h-[69px] print:hidden">
+        <button
+          className="p-2 -ml-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 rounded-lg md:hidden transition-colors"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          <MenuIcon className="w-6 h-6" />
+        </button>
+        <div className="flex items-center gap-2">
+          <FileTextIcon className="w-5 h-5 text-orange-600 dark:text-orange-500" />
+          <h1 className="font-semibold text-lg tracking-tight">Smart Resume Builder</h1>
+        </div>
+      </header>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-zinc-50 dark:bg-zinc-950/50 print:p-0 print:overflow-visible">
-          <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 h-full min-h-[600px] print:block print:min-h-0 print:w-full">
-            
-            {/* Form Column */}
-            <div className="w-full lg:w-[450px] shrink-0 flex flex-col gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm overflow-y-auto max-h-[calc(100vh-120px)] hide-scrollbar print:hidden">
-              <div className="mb-1">
-                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Profile Details</h2>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Fill out short descriptions; AI will expand them to match the JD!</p>
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-zinc-50 dark:bg-zinc-950/50 print:p-0 print:overflow-visible">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 h-full min-h-[600px] print:block print:min-h-0 print:w-full">
+
+          {/* Form Column */}
+          <div className="w-full lg:w-[450px] shrink-0 flex flex-col gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm overflow-y-auto max-h-[calc(100vh-120px)] hide-scrollbar print:hidden">
+            <div className="mb-1">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Profile Details</h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Fill out short descriptions; AI will expand them to match the JD!</p>
+            </div>
+
+            <form onSubmit={generateResume} className="space-y-4 flex-1 flex flex-col">
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
+                  Target Job Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={jd}
+                  onChange={(e) => setJd(e.target.value)}
+                  required
+                  placeholder="Paste the target Job Description to align keywords..."
+                  rows={3}
+                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400 resize-y"
+                />
               </div>
 
-              <form onSubmit={generateResume} className="space-y-4 flex-1 flex flex-col">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
-                    Target Job Description <span className="text-red-500">*</span>
-                  </label>
-                  <textarea 
-                    value={jd}
-                    onChange={(e) => setJd(e.target.value)}
-                    required
-                    placeholder="Paste the target Job Description to align keywords..."
-                    rows={3}
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400 resize-y"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
+                  Personal Info & Links
+                </label>
+                <input
+                  value={personalDetails}
+                  onChange={(e) => setPersonalDetails(e.target.value)}
+                  placeholder="E.g. Jane Doe | email@mail.com | LinkedIn"
+                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
-                    Personal Info & Links
-                  </label>
-                  <input 
-                    value={personalDetails}
-                    onChange={(e) => setPersonalDetails(e.target.value)}
-                    placeholder="E.g. Jane Doe | email@mail.com | LinkedIn"
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
+                  Work Experience (Short descriptions fine)
+                </label>
+                <textarea
+                  value={experience}
+                  onChange={(e) => setExperience(e.target.value)}
+                  placeholder="E.g. Developer at Google (2020-2022). Fixed bugs and made site faster."
+                  rows={3}
+                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400 resize-y"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
-                    Work Experience (Short descriptions fine)
-                  </label>
-                  <textarea 
-                    value={experience}
-                    onChange={(e) => setExperience(e.target.value)}
-                    placeholder="E.g. Developer at Google (2020-2022). Fixed bugs and made site faster."
-                    rows={3}
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400 resize-y"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
-                    Education & Certifications
-                  </label>
-                  <textarea 
-                    value={education}
-                    onChange={(e) => setEducation(e.target.value)}
-                    placeholder="E.g. B.S. CS, University Name. AWS Certified."
-                    rows={2}
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400 resize-y"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
+                  Education & Certifications
+                </label>
+                <textarea
+                  value={education}
+                  onChange={(e) => setEducation(e.target.value)}
+                  placeholder="E.g. B.S. CS, University Name. AWS Certified."
+                  rows={2}
+                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400 resize-y"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
-                    Projects (Include URLs if any) <span className="text-orange-500 text-xs mt-0.5">✨ AI Expanded</span>
-                  </label>
-                  <textarea 
-                    value={projects}
-                    onChange={(e) => setProjects(e.target.value)}
-                    placeholder="E.g. Chatbot App (https://demo.com): Used React/Node."
-                    rows={3}
-                    className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400 resize-y"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex justify-between">
+                  Projects (Include URLs if any) <span className="text-orange-500 text-xs mt-0.5">✨ AI Expanded</span>
+                </label>
+                <textarea
+                  value={projects}
+                  onChange={(e) => setProjects(e.target.value)}
+                  placeholder="E.g. Chatbot App (https://demo.com): Used React/Node."
+                  rows={3}
+                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-zinc-400 resize-y"
+                />
+              </div>
 
-                <div className="pt-2">
-                  <button 
-                    type="submit"
-                    disabled={isLoading || !jd}
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white py-3 px-4 rounded-xl text-sm font-semibold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-[0.98]"
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isLoading || !jd}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white py-3 px-4 rounded-xl text-sm font-semibold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-[0.98]"
+                >
+                  {isLoading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                      Writing Resume...
+                    </>
+                  ) : (
+                    <>
+                      <FileTextIcon className="w-4 h-4" />
+                      Generate Targeted Resume
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Document Preview Column */}
+          <div className="flex-1 flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden min-h-[400px] print:border-none print:shadow-none print:bg-transparent print:overflow-visible print:block">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 shrink-0 print:hidden">
+              <div className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <FileTextIcon className="w-4 h-4 text-zinc-400" />
+                Your ATS Resume
+              </div>
+
+              {completion && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={copyToClipboard}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm transition-colors"
+                    title="Copy raw text"
                   >
-                    {isLoading ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        Writing Resume...
-                      </>
-                    ) : (
-                      <>
-                        <FileTextIcon className="w-4 h-4" />
-                        Generate Targeted Resume
-                      </>
-                    )}
+                    {copied ? <CheckIcon className="w-3.5 h-3.5 text-green-500" /> : <CopyIcon className="w-3.5 h-3.5" />}
+                    <span className="hidden sm:inline">{copied ? "Copied!" : "Copy Text"}</span>
+                  </button>
+
+                  <button
+                    onClick={copyForWordDoc}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-orange-700 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 rounded-lg shadow-sm transition-colors"
+                    title="Copies rich text that preserves formatting when pasted into Microsoft Word or Google Docs"
+                  >
+                    {copiedDoc ? <CheckIcon className="w-3.5 h-3.5 text-green-500" /> : <CopyIcon className="w-3.5 h-3.5" />}
+                    <span className="hidden sm:inline">{copiedDoc ? "Copied format!" : "Copy for Word / Docs"}</span>
+                  </button>
+
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700 bg-orange-600 border border-orange-700 rounded-lg shadow-sm transition-colors"
+                    title="Download as PDF"
+                  >
+                    <DownloadIcon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Download PDF</span>
                   </button>
                 </div>
-              </form>
+              )}
             </div>
 
-            {/* Document Preview Column */}
-            <div className="flex-1 flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden min-h-[400px] print:border-none print:shadow-none print:bg-transparent print:overflow-visible print:block">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 shrink-0 print:hidden">
-                <div className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  <FileTextIcon className="w-4 h-4 text-zinc-400" />
-                  Your ATS Resume
+            {/* Notice the bg-white constraint here to make the resume preview resemble a physical paper */}
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-zinc-100 dark:bg-zinc-950 flex justify-center print:p-0 print:bg-white print:overflow-visible">
+              {completion ? (
+                <div
+                  ref={contentRef}
+                  className="bg-white text-black min-w-full lg:min-w-[650px] max-w-[800px] p-8 sm:p-12 shadow-md border border-zinc-200 print:max-w-none print:shadow-none print:border-none print:p-0 outline-none hover:shadow-lg focus:ring-2 focus:ring-orange-500/50 transition-shadow"
+                  style={{ minHeight: '1000px' }} // Standard page height simulation
+                  contentEditable={true}
+                  suppressContentEditableWarning={true}
+                  title="Click anywhere to edit the resume text"
+                >
+                  <MarkdownRenderer content={completion} />
                 </div>
-                
-                {completion && (
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={copyToClipboard}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm transition-colors"
-                      title="Copy raw text"
-                    >
-                      {copied ? <CheckIcon className="w-3.5 h-3.5 text-green-500" /> : <CopyIcon className="w-3.5 h-3.5" />}
-                      <span className="hidden sm:inline">{copied ? "Copied!" : "Copy Text"}</span>
-                    </button>
-
-                    <button 
-                      onClick={copyForWordDoc}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-orange-700 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 rounded-lg shadow-sm transition-colors"
-                      title="Copies rich text that preserves formatting when pasted into Microsoft Word or Google Docs"
-                    >
-                      {copiedDoc ? <CheckIcon className="w-3.5 h-3.5 text-green-500" /> : <CopyIcon className="w-3.5 h-3.5" />}
-                      <span className="hidden sm:inline">{copiedDoc ? "Copied format!" : "Copy for Word / Docs"}</span>
-                    </button>
-
-                    <button 
-                      onClick={handleDownloadPDF}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700 bg-orange-600 border border-orange-700 rounded-lg shadow-sm transition-colors"
-                      title="Download as PDF"
-                    >
-                      <DownloadIcon className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Download PDF</span>
-                    </button>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600 space-y-4 m-auto">
+                  <div className="w-16 h-16 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                    <FileTextIcon className="w-8 h-8 opacity-50 text-orange-500/50" />
                   </div>
-                )}
-              </div>
-
-              {/* Notice the bg-white constraint here to make the resume preview resemble a physical paper */}
-              <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-zinc-100 dark:bg-zinc-950 flex justify-center print:p-0 print:bg-white print:overflow-visible">
-                {completion ? (
-                  <div 
-                    ref={contentRef} 
-                    className="bg-white text-black min-w-full lg:min-w-[650px] max-w-[800px] p-8 sm:p-12 shadow-md border border-zinc-200 print:max-w-none print:shadow-none print:border-none print:p-0 outline-none hover:shadow-lg focus:ring-2 focus:ring-orange-500/50 transition-shadow"
-                    style={{ minHeight: '1000px' }} // Standard page height simulation
-                    contentEditable={true}
-                    suppressContentEditableWarning={true}
-                    title="Click anywhere to edit the resume text"
-                  >
-                    <MarkdownRenderer content={completion} />
-                  </div>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600 space-y-4 m-auto">
-                    <div className="w-16 h-16 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                      <FileTextIcon className="w-8 h-8 opacity-50 text-orange-500/50" />
-                    </div>
-                    <p className="text-sm">Your ATS-optimized resume will generate here.</p>
-                  </div>
-                )}
-              </div>
+                  <p className="text-sm">Your ATS-optimized resume will generate here.</p>
+                </div>
+              )}
             </div>
-
           </div>
+
         </div>
-        
-        {/* Global style overrides */}
-        <style dangerouslySetInnerHTML={{__html: `
+      </div>
+
+      {/* Global style overrides */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
           .hide-scrollbar::-webkit-scrollbar {
             display: none;
           }
@@ -414,7 +415,7 @@ export default function ResumeBuilderApp() {
           }
           @media print {
             body {
-              margin: 1.5cm; /* Restores a professional margin for the resume content */
+              margin: 0.5cm 1cm; /* Reduced vertical margin, preserved horizontal for resume formatting */
             }
           }
         `}} />
