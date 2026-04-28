@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Briefcase, MapPin, Clock, ExternalLink, Filter, Search, X,
-  Bookmark, ChevronDown, Building2, Wifi, Globe
+  Bookmark, ChevronDown, Building2, Wifi, Globe, Copy, Check
 } from 'lucide-react';
 
 type Job = {
@@ -265,6 +265,13 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
 }) {
   const id = String(job.id);
   const isSaved = savedIds.has(id);
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(job.url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   const logo = job.company_logo_url || job.company_logo;
   const location = job.candidate_required_location || job.location || (job.remote ? 'Remote' : 'Worldwide');
   const type = job.job_type || job.job_types?.[0] || '';
@@ -277,7 +284,6 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
       onClick={() => onOpen(job)}>
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {logo
           <CompanyLogo logo={logo} name={job.company_name} />
         </div>
 
@@ -335,6 +341,13 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
             }`}
           >
             <Bookmark className="w-4 h-4" fill={isSaved ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            onClick={copyLink}
+            className={`p-2 rounded-lg transition-colors ${copied ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700'}`}
+            title="Copy job link"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           </button>
           <a
             href={job.url}
