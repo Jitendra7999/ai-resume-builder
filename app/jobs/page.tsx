@@ -44,7 +44,6 @@ const JOB_TYPES = [
   { value: 'full_time', label: 'Full Time' },
   { value: 'part_time', label: 'Part Time' },
   { value: 'contract', label: 'Contract' },
-  { value: 'freelance', label: 'Freelance' },
 ];
 
 function getDaysAgo(dateStr?: string, timestamp?: number): number {

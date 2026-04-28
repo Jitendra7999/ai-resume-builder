@@ -22,8 +22,12 @@ export async function GET(req: NextRequest) {
       const data = await res.json();
       let jobs = data.jobs || [];
 
-      // Client-side onsite filter: remotive is all remote, so onsite returns nothing
-      if (onsite) jobs = [];
+      // On-site = India-based jobs on Remotive (filter by candidate_required_location)
+      if (onsite) {
+        jobs = jobs.filter((j: { candidate_required_location?: string }) =>
+          (j.candidate_required_location || '').toLowerCase().includes('india')
+        );
+      }
 
       return NextResponse.json({ jobs, total: data['job-count'] || 0 });
     }
@@ -38,8 +42,13 @@ export async function GET(req: NextRequest) {
       const data = await res.json();
       let jobs = data.data || [];
 
-      // Filter onsite: remote === false
-      if (onsite) jobs = jobs.filter((j: { remote?: boolean }) => j.remote === false);
+      // On-site = India jobs only (non-remote + India location)
+      if (onsite) {
+        jobs = jobs.filter((j: { remote?: boolean; location?: string }) =>
+          j.remote === false &&
+          (j.location || '').toLowerCase().includes('india')
+        );
+      }
 
       return NextResponse.json({ jobs, total: jobs.length });
     }
