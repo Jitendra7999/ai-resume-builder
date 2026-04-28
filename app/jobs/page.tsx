@@ -45,6 +45,25 @@ const JOB_TYPES = [
   { value: 'contract', label: 'Contract' },
 ];
 
+const EXP_LEVELS = [
+  { value: '', label: 'All Levels' },
+  { value: 'intern', label: 'Internship' },
+  { value: 'entry', label: 'Entry Level (0–2 yrs)' },
+  { value: 'mid', label: 'Mid Level (2–5 yrs)' },
+  { value: 'senior', label: 'Senior (5+ yrs)' },
+  { value: 'lead', label: 'Lead / Manager' },
+];
+
+function detectExpLevel(title: string, description?: string): string {
+  const text = `${title} ${description || ''}`.toLowerCase();
+  if (text.includes('intern') || text.includes('internship')) return 'intern';
+  if (text.includes('senior') || text.includes(' sr ') || text.includes('sr.') || text.includes('staff ') || text.includes('principal')) return 'senior';
+  if (text.includes('lead') || text.includes('manager') || text.includes('head of') || text.includes('director')) return 'lead';
+  if (text.includes('junior') || text.includes(' jr ') || text.includes('entry') || text.includes('associate') || text.includes('graduate') || text.includes('0-2') || text.includes('0–2')) return 'entry';
+  if (text.includes('mid') || text.includes('2-5') || text.includes('2–5') || text.includes('3+ year') || text.includes('4+ year')) return 'mid';
+  return '';
+}
+
 function getDaysAgo(dateStr?: string, timestamp?: number): number {
   const date = dateStr ? new Date(dateStr) : timestamp ? new Date(timestamp * 1000) : null;
   if (!date) return 999;
@@ -69,6 +88,10 @@ function getJobBadges(job: Job): { label: string; color: string }[] {
   else if (days <= 3) badges.push({ label: '🔥 Apply Soon', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' });
 
   if (job.salary) badges.push({ label: '💰 Salary Listed', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' });
+
+  const lvl = detectExpLevel(job.title, job.description);
+  const lvlLabels: Record<string, string> = { intern: '🎓 Intern', entry: '🌱 Entry Level', mid: '🔧 Mid Level', senior: '⭐ Senior', lead: '👑 Lead/Manager' };
+  if (lvl && lvlLabels[lvl]) badges.push({ label: lvlLabels[lvl], color: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-800' });
 
   const locationStr = (job.candidate_required_location || job.location || '').toLowerCase();
   const isRemote = job.remote === true || locationStr.includes('worldwide') || locationStr.includes('remote') || locationStr === '';
@@ -343,6 +366,7 @@ export default function JobsPage() {
   const [workMode, setWorkMode] = useState<'all' | 'remote' | 'onsite'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'salary'>('newest');
   const [total, setTotal] = useState(0);
+  const [expLevel, setExpLevel] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -422,13 +446,18 @@ export default function JobsPage() {
     setJobType('');
     setWorkMode('all');
     setSortBy('newest');
+    setExpLevel('');
   };
 
-  const hasActiveFilters = search || category || jobType || workMode !== 'all';
+  const hasActiveFilters = search || category || jobType || workMode !== 'all' || expLevel;
 
   // Sort + filter displayed jobs
   const displayedJobs = [...jobs]
     .filter((j) => showSavedOnly ? savedIds.has(String(j.id)) : true)
+    .filter((j) => {
+      if (!expLevel) return true;
+      return detectExpLevel(j.title, j.description) === expLevel;
+    })
     .sort((a, b) => {
       if (sortBy === 'salary') {
         const aHas = a.salary ? 1 : 0;
@@ -564,6 +593,11 @@ export default function JobsPage() {
                   </select>
                 </>
               )}
+              {/* Experience level — works on all sources */}
+              <select value={expLevel} onChange={(e) => setExpLevel(e.target.value)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                {EXP_LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
             </div>
           )}
         </div>
