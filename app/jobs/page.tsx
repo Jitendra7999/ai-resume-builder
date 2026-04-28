@@ -428,13 +428,33 @@ export default function JobsPage() {
     });
   };
 
+  const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
   const fetchJobs = useCallback(async (pageNum = 1, append = false) => {
+    const isJSearch = source === 'jsearch';
+    const effectiveSearch = isJSearch ? (search || 'frontend developer') : search;
+
+    // Check cache for JSearch
+    if (isJSearch && !append) {
+      const cacheKey = `jsearch_cache_${effectiveSearch}_${workMode}_${pageNum}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { jobs: cachedJobs, total: cachedTotal, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          setJobs(cachedJobs);
+          setTotal(cachedTotal);
+          setHasMore(cachedJobs.length === 20);
+          return;
+        }
+      }
+    }
+
     if (append) setLoadingMore(true);
     else setLoading(true);
 
     try {
       const params = new URLSearchParams({ source, page: String(pageNum) });
-      if (search) params.set('search', search);
+      if (effectiveSearch) params.set('search', effectiveSearch);
       if (category) params.set('category', category);
       if (jobType) params.set('job_type', jobType);
       if (workMode === 'remote') params.set('remote', 'true');
@@ -443,6 +463,12 @@ export default function JobsPage() {
       const res = await fetch(`/api/jobs?${params}`);
       const data = await res.json();
       const fetched: Job[] = data.jobs || [];
+
+      // Cache JSearch results
+      if (isJSearch && !append) {
+        const cacheKey = `jsearch_cache_${effectiveSearch}_${workMode}_${pageNum}`;
+        localStorage.setItem(cacheKey, JSON.stringify({ jobs: fetched, total: data.total || 0, timestamp: Date.now() }));
+      }
 
       setJobs((prev) => append ? [...prev, ...fetched] : fetched);
       setTotal(data.total || 0);
@@ -455,8 +481,9 @@ export default function JobsPage() {
     }
   }, [source, search, category, jobType, workMode]);
 
-  // Debounce search
+  // Debounce search — skip auto-fetch for JSearch (manual only)
   useEffect(() => {
+    if (source === 'jsearch') return;
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
       setPage(1);
@@ -561,7 +588,7 @@ export default function JobsPage() {
             ] as const).map((s) => (
               <button
                 key={s.id}
-                onClick={() => { setSource(s.id); setJobType(''); setWorkMode('all'); }}
+                onClick={() => { setSource(s.id); setJobType(''); setWorkMode(s.id === 'jsearch' ? 'onsite' : 'all'); }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   source === s.id
                     ? 'bg-emerald-600 text-white'
@@ -598,10 +625,19 @@ export default function JobsPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search jobs, companies, skills..."
+                onKeyDown={(e) => { if (e.key === 'Enter' && source === 'jsearch') { setPage(1); fetchJobs(1, false); } }}
+                placeholder={source === 'jsearch' ? 'Search LinkedIn, Indeed, Google Jobs...' : 'Search jobs, companies, skills...'}
                 className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
+            {source === 'jsearch' && (
+              <button
+                onClick={() => { setPage(1); fetchJobs(1, false); }}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+              >
+                <Search className="w-4 h-4" /> Search
+              </button>
+            )}
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg border transition-colors ${
@@ -668,7 +704,7 @@ export default function JobsPage() {
               <div className="grid gap-3">
                 {displayedJobs.map((job) => (
                   <JobCard
-                    key={`${source}-${job.id}`}
+                    key={`${source}-${job.id ?? job.url}`}
                     job={job}
                     source={source}
                     savedIds={savedIds}
