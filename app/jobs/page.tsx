@@ -42,7 +42,6 @@ const REMOTIVE_CATEGORIES = [
 const JOB_TYPES = [
   { value: '', label: 'All Types' },
   { value: 'full_time', label: 'Full Time' },
-  { value: 'part_time', label: 'Part Time' },
   { value: 'contract', label: 'Contract' },
 ];
 
