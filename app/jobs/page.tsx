@@ -475,7 +475,7 @@ export default function JobsPage() {
 
   const fetchJobs = useCallback(async (pageNum = 1, append = false) => {
     const isJSearch = source === 'jsearch';
-    const effectiveSearch = isJSearch ? (search || 'frontend developer') : search;
+    const effectiveSearch = isJSearch ? (search || 'software developer frontend fullstack') : search;
 
     // Check cache for JSearch
     if (isJSearch && !append) {

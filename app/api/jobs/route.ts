@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const source = searchParams.get('source') || 'jobicy';
   const rawSearch = searchParams.get('search') || '';
-  const search = rawSearch || 'software engineer'; // default for all sources
+  // Covers: software dev, frontend dev, fullstack, backend, web dev, engineer
+  const search = rawSearch || 'software developer frontend fullstack';
   const category = searchParams.get('category') || '';
   const jobType = searchParams.get('job_type') || '';
   const remote = searchParams.get('remote') || '';
@@ -81,6 +82,7 @@ export async function GET(req: NextRequest) {
       params.set('count', '20');
       params.set('page', String(page));
       if (search) params.set('search', search);
+      params.set('industry', 'engineering'); // lock to tech/engineering jobs
       if (onsite) params.set('geo', 'india');
       else if (remote) params.set('geo', 'worldwide');
 
