@@ -70,12 +70,13 @@ function getJobBadges(job: Job): { label: string; color: string }[] {
 
   if (job.salary) badges.push({ label: '💰 Salary Listed', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' });
 
-  const isRemote = job.remote === true ||
-    (job.candidate_required_location || '').toLowerCase().includes('worldwide') ||
-    (job.candidate_required_location || '').toLowerCase().includes('remote');
+  const locationStr = (job.candidate_required_location || job.location || '').toLowerCase();
+  const isRemote = job.remote === true || locationStr.includes('worldwide') || locationStr.includes('remote') || locationStr === '';
+  const isIndia = locationStr.includes('india');
 
-  if (isRemote) badges.push({ label: '🏠 Remote', color: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800' });
-  else if (job.location && !isRemote) badges.push({ label: '🏢 On-site', color: 'bg-zinc-50 text-zinc-700 border-zinc-200 dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600' });
+  if (isIndia) badges.push({ label: '🇮🇳 India', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' });
+  else if (isRemote) badges.push({ label: '🏠 Remote', color: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800' });
+  else badges.push({ label: '🏢 On-site', color: 'bg-zinc-50 text-zinc-700 border-zinc-200 dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600' });
 
   return badges;
 }
@@ -335,7 +336,7 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [source, setSource] = useState<'remotive' | 'arbeitnow'>('remotive');
+  const [source, setSource] = useState<'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok'>('remotive');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [jobType, setJobType] = useState('');
@@ -478,18 +479,24 @@ export default function JobsPage() {
           </div>
 
           {/* Source tabs */}
-          <div className="flex gap-2 mt-4">
-            {(['remotive', 'arbeitnow'] as const).map((s) => (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {([
+              { id: 'remotive', label: 'Remotive' },
+              { id: 'arbeitnow', label: 'Arbeitnow' },
+              { id: 'jobicy', label: 'Jobicy' },
+              { id: 'themuse', label: 'The Muse' },
+              { id: 'remoteok', label: 'RemoteOK' },
+            ] as const).map((s) => (
               <button
-                key={s}
-                onClick={() => { setSource(s); setCategory(''); setJobType(''); setWorkMode('all'); }}
+                key={s.id}
+                onClick={() => { setSource(s.id); setCategory(''); setJobType(''); setWorkMode('all'); }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  source === s
+                  source === s.id
                     ? 'bg-emerald-600 text-white'
                     : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600'
                 }`}
               >
-                {s === 'remotive' ? 'Remotive' : 'Arbeitnow'}
+                {s.label}
               </button>
             ))}
           </div>
