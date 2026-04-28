@@ -22,8 +22,9 @@ function clean(jobs: NormalizedJob[]) {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const source = searchParams.get('source') || 'remotive';
-  const search = searchParams.get('search') || '';
+  const source = searchParams.get('source') || 'jobicy';
+  const rawSearch = searchParams.get('search') || '';
+  const search = rawSearch || 'software engineer'; // default for all sources
   const category = searchParams.get('category') || '';
   const jobType = searchParams.get('job_type') || '';
   const remote = searchParams.get('remote') || '';
