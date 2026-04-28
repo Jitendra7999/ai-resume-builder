@@ -347,8 +347,8 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
             onClick={copyLink}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
               copied
-                ? 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-700'
-                : 'text-zinc-500 border-zinc-200 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                ? 'text-white bg-emerald-500 border-emerald-500'
+                : 'text-violet-600 bg-violet-50 border-violet-200 dark:bg-violet-900/20 dark:border-violet-700 dark:text-violet-400 hover:bg-violet-100'
             }`}
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -358,7 +358,7 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
             href={job.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 dark:hover:bg-emerald-900/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             Go to Job
