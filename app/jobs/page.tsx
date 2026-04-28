@@ -310,6 +310,7 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply, mat
             <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>
             {type && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{type.replace('_', ' ')}</span>}
             {postedAt && <span>{postedAt}</span>}
+            {(() => { const exp = extractExpYears(job.title, job.description); return exp ? <span className="font-bold text-zinc-600 dark:text-zinc-300">📅 {exp}</span> : null; })()}
           </div>
 
           {/* Smart badges */}
