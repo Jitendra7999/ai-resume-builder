@@ -166,6 +166,10 @@ export function AppSidebar() {
             <TargetIcon className="w-4 h-4 opacity-70" />
             <span className="truncate">Job Tracker</span>
           </Link>
+          <Link href="/email-hr" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
+            <MessageIcon className="w-4 h-4 opacity-70" />
+            <span className="truncate">Email HR</span>
+          </Link>
         </div>
 
         <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
