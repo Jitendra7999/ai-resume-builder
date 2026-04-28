@@ -14,6 +14,8 @@ type EmailPayload = {
   experience: string;
   skills: string;
   resumeContent: string;
+  role: string;
+  expYears: string;
 };
 
 function extractEmailFromText(text: string): string | null {
@@ -22,33 +24,59 @@ function extractEmailFromText(text: string): string | null {
 }
 
 async function generateEmailBody(payload: EmailPayload): Promise<{ subject: string; body: string }> {
+  const isColdEmail = !payload.jobTitle && !payload.jobDescription;
+  const role = payload.role || 'Frontend Developer';
+  const expYears = payload.expYears || '1';
+
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return {
-      subject: `Application for ${payload.jobTitle} – ${payload.senderName}`,
-      body: `Dear ${payload.hrName || 'Hiring Manager'},\n\nI am writing to express my interest in the ${payload.jobTitle} position at ${payload.company}.\n\nBest regards,\n${payload.senderName}`,
+      subject: isColdEmail
+        ? `${role} with ${expYears} year exp – Open to Opportunities`
+        : `Application for ${payload.jobTitle} – ${payload.senderName}`,
+      body: `Dear ${payload.hrName || 'Hiring Manager'},\n\nI am a ${role} with ${expYears} year of experience in ${payload.skills}. I would love to be considered for any relevant openings at ${payload.company}.\n\nI have attached my resume for your reference.\n\nBest regards,\n${payload.senderName}`,
     };
   }
 
-  const { text } = await generateText({
-    model: google('gemini-2.5-flash'),
-    prompt: `Write a professional cold email to an HR/hiring manager for a job application.
+  const prompt = isColdEmail
+    ? `Write a short, soft cold outreach email to an HR at a tech company.
+
+Profile:
+- Name: ${payload.senderName}
+- Role: ${role}
+- Experience: ${expYears} year(s)
+- Skills: ${payload.skills}
+- Company being contacted: ${payload.company || 'the company'}
+- HR Name: ${payload.hrName || 'Hiring Manager'}
+
+Requirements:
+- Subject line first (prefix with "Subject: ")
+- Very soft tone — not applying for a specific job, just introducing self
+- 3 lines max body
+- Mention role + exp years + 2 key skills
+- End: "I've attached my resume, happy to connect if there's an opportunity."
+- Under 80 words
+- No placeholders`
+    : `Write a professional job application email to an HR.
 
 HR Name: ${payload.hrName || 'Hiring Manager'}
 Company: ${payload.company}
 Job Title: ${payload.jobTitle}
-Job Description: ${payload.jobDescription?.slice(0, 400) || 'Software Development role'}
+Job Description: ${payload.jobDescription?.slice(0, 400)}
 Applicant: ${payload.senderName}
-Experience: ${payload.experience}
+Role: ${role}, ${expYears} year(s) experience
 Skills: ${payload.skills}
 
 Requirements:
 - Subject line first (prefix with "Subject: ")
 - 3 short paragraphs max
-- Professional, confident, not desperate
-- Mention 2-3 specific relevant skills matching the role
-- End with a clear call to action
-- Under 150 words total
-- No placeholders`,
+- Match skills to job description
+- End with call to action
+- Under 130 words
+- No placeholders`;
+
+  const { text } = await generateText({
+    model: google('gemini-2.5-flash'),
+    prompt,
   });
 
   const lines = text.split('\n');

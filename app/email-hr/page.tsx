@@ -20,13 +20,17 @@ type Profile = {
   senderEmail: string;
   experience: string;
   skills: string;
+  role: string;
+  expYears: string;
 };
 
 const DEFAULT_PROFILE: Profile = {
   senderName: 'Arjun Sharma',
   senderEmail: 'test@gmail.com',
-  experience: 'Full Stack Developer at Techstuff Pvt Ltd (Jan 2023 - Present)',
-  skills: 'React, Next.js, Node.js, NestJS, MongoDB, TypeScript, TailwindCSS',
+  role: 'Frontend Developer',
+  expYears: '1',
+  experience: 'Frontend Developer at Techstuff Pvt Ltd (Jan 2023 - Present)',
+  skills: 'React, Next.js, TypeScript, TailwindCSS, JavaScript',
 };
 
 const STATUS_STYLE = {
@@ -174,6 +178,8 @@ export default function EmailHRPage() {
             senderEmail: profile.senderEmail,
             experience: profile.experience,
             skills: profile.skills,
+            role: profile.role,
+            expYears: profile.expYears,
             resumeContent,
           }),
         });
@@ -304,6 +310,8 @@ export default function EmailHRPage() {
                 {([
                   { key: 'senderName', label: 'Your Name' },
                   { key: 'senderEmail', label: 'Your Email' },
+                  { key: 'role', label: 'Your Role (e.g. Frontend Developer)' },
+                  { key: 'expYears', label: 'Experience (years)' },
                   { key: 'skills', label: 'Skills' },
                 ] as const).map(({ key, label }) => (
                   <div key={key}>
