@@ -5,8 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
   Zap, User, Mail, Phone, Linkedin, FileText, Briefcase,
-  CheckCircle, XCircle, Loader2, AlertTriangle, Clock, ExternalLink, Trash2
+  CheckCircle, XCircle, Loader2, AlertTriangle, Clock, ExternalLink, Trash2, Eye
 } from 'lucide-react';
+import { ResumePreview } from '@/components/ResumePreview';
 
 type LogEntry = {
   type: 'status' | 'captcha' | 'error' | 'done' | 'cover_letter';
@@ -56,6 +57,7 @@ function ApplyContent() {
 
   // Apply state
   const [applying, setApplying] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [coverLetter, setCoverLetter] = useState('');
   const [captchaAlert, setCaptchaAlert] = useState(false);
@@ -354,7 +356,15 @@ function ApplyContent() {
 
             {/* Resume selector */}
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4">
-              <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Resume</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Resume</p>
+                {resumeContent && (
+                  <button onClick={() => setShowPreview(true)}
+                    className="flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:underline">
+                    <Eye className="w-3 h-3" /> Preview & Download
+                  </button>
+                )}
+              </div>
               <textarea value={resumeContent} onChange={(e) => setResumeContent(e.target.value)}
                 rows={3} placeholder="Resume content (loaded from your profile resumes)..."
                 className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none" />
@@ -484,6 +494,15 @@ function ApplyContent() {
           </div>
         </div>
       </div>
+
+      {/* Resume Preview Modal */}
+      {showPreview && resumeContent && (
+        <ResumePreview
+          content={resumeContent}
+          name={jobTitle || 'Resume'}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }

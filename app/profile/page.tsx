@@ -6,6 +6,7 @@ import {
   User, Mail, Phone, Briefcase, BookOpen, Wrench, Lock,
   Plus, Trash2, Save, Loader2, CheckCircle, Eye, EyeOff, FileText, LogOut
 } from 'lucide-react';
+import { ResumePreview } from '@/components/ResumePreview';
 
 type Profile = {
   name: string; email: string; phone: string; linkedin: string;
@@ -53,6 +54,7 @@ export default function ProfilePage() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [newResume, setNewResume] = useState<Omit<Resume, 'id'>>({ name: '', jobTitle: '', content: '' });
   const [editingResume, setEditingResume] = useState<Resume | null>(null);
+  const [previewResume, setPreviewResume] = useState<Resume | null>(null);
   const [showResumeForm, setShowResumeForm] = useState(false);
 
   const [gmail, setGmail] = useState<GmailCreds>({ gmailUser: '', gmailAppPassword: '' });
@@ -335,7 +337,11 @@ export default function ProfilePage() {
                           {r.createdAt && <p className="text-xs text-zinc-400 mt-0.5">{new Date(r.createdAt).toLocaleDateString('en-IN')}</p>}
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => { setEditingResume(r); setShowResumeForm(false); }}
+                          <button onClick={() => setPreviewResume(r)}
+                            className="px-3 py-1.5 text-xs border border-zinc-200 dark:border-zinc-600 text-zinc-500 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors flex items-center gap-1">
+                            <Eye className="w-3 h-3" /> Preview
+                          </button>
+                        <button onClick={() => { setEditingResume(r); setShowResumeForm(false); }}
                             className="px-3 py-1.5 text-xs border border-zinc-200 dark:border-zinc-600 text-zinc-500 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
                             Edit
                           </button>
@@ -431,6 +437,13 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+    {previewResume && (
+      <ResumePreview
+        content={previewResume.content}
+        name={previewResume.name}
+        onClose={() => setPreviewResume(null)}
+      />
+    )}
     </div>
   );
 }
