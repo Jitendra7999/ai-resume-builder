@@ -257,13 +257,14 @@ function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
 }
 
 // --- Job Card ---
-function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply }: {
+function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply, matchingSkills }: {
   job: Job;
   source: string;
   savedIds: Set<string>;
   onToggleSave: (id: string) => void;
   onOpen: (job: Job) => void;
   onAutoApply?: (job: Job) => void;
+  matchingSkills: string[];
 }) {
   const id = String(job.id);
   const isSaved = savedIds.has(id);
@@ -324,10 +325,27 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply }: {
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {tags.map((tag) => (
-                <span key={tag} className="px-2 py-0.5 text-xs rounded-full bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">
-                  {tag}
+                <span key={tag} className={`px-2 py-0.5 text-xs rounded-full ${
+                  matchingSkills.includes(tag.toLowerCase())
+                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-medium'
+                    : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400'
+                }`}>
+                  {matchingSkills.includes(tag.toLowerCase()) ? '✓ ' : ''}{tag}
                 </span>
               ))}
+            </div>
+          )}
+          {matchingSkills.length > 0 && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <div className="flex-1 h-1.5 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, (matchingSkills.length / Math.max(tags.length, 1)) * 100)}%` }}
+                />
+              </div>
+              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                {matchingSkills.length} skill{matchingSkills.length > 1 ? 's' : ''} match
+              </span>
             </div>
           )}
         </div>
@@ -397,7 +415,32 @@ export default function JobsPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [mySkills, setMySkills] = useState<string[]>([]);
+  const [mySkillsInput, setMySkillsInput] = useState('');
   const router = useRouter();
+
+  // Load my skills from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('my_skills');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setMySkills(parsed);
+      setMySkillsInput(parsed.join(', '));
+    }
+  }, []);
+
+  const saveMySkills = (val: string) => {
+    setMySkillsInput(val);
+    const parsed = val.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+    setMySkills(parsed);
+    localStorage.setItem('my_skills', JSON.stringify(parsed));
+  };
+
+  const getMatchingSkills = (job: Job): string[] => {
+    if (!mySkills.length) return [];
+    const jobText = `${job.title} ${(job.tags || []).join(' ')} ${job.description || ''}`.toLowerCase();
+    return mySkills.filter((skill) => jobText.includes(skill));
+  };
 
   const handleAutoApply = (job: Job) => {
     const params = new URLSearchParams({
@@ -541,12 +584,22 @@ export default function JobsPage() {
       {/* Header */}
       <div className="bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 px-6 py-4 shrink-0">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Job Board</h1>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
                 {loading ? 'Loading...' : `${displayedJobs.length} jobs${total > displayedJobs.length ? ` of ${total}` : ''}`}
               </p>
+            </div>
+            {/* My Skills input */}
+            <div className="flex-1 max-w-sm">
+              <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">My Skills <span className="text-zinc-400">(comma separated — shows match %)</span></label>
+              <input
+                value={mySkillsInput}
+                onChange={(e) => saveMySkills(e.target.value)}
+                placeholder="React, Node.js, TypeScript..."
+                className="w-full px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
             </div>
             <div className="flex items-center gap-2">
               {/* Saved jobs toggle */}
@@ -711,6 +764,7 @@ export default function JobsPage() {
                     onToggleSave={toggleSave}
                     onOpen={setSelectedJob}
                     onAutoApply={source !== 'remotive' ? handleAutoApply : undefined}
+                    matchingSkills={getMatchingSkills(job)}
                   />
                 ))}
               </div>
