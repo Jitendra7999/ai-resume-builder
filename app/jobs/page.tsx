@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Briefcase, MapPin, Clock, ExternalLink, Filter, Search, X,
+  Bookmark, ChevronDown, Building2, Wifi, Globe
+} from 'lucide-react';
 
 type Job = {
   id: string | number;
@@ -142,68 +146,25 @@ function getJobBadges(job: Job): { label: string; color: string }[] {
   return badges;
 }
 
-// --- Icons ---
-function BriefcaseIcon({ className = 'w-5 h-5' }) {
+// Company logo with initial fallback
+const LOGO_COLORS = ['bg-violet-500','bg-emerald-500','bg-blue-500','bg-rose-500','bg-amber-500','bg-indigo-500','bg-teal-500','bg-pink-500'];
+function CompanyLogo({ logo, name }: { logo?: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  const color = LOGO_COLORS[name.charCodeAt(0) % LOGO_COLORS.length];
+  if (logo && !failed) {
+    return (
+      <img
+        src={logo}
+        alt={name}
+        className="w-10 h-10 object-contain"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-    </svg>
-  );
-}
-function MapPinIcon({ className = 'w-3 h-3' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-function ClockIcon({ className = 'w-3 h-3' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-function ExternalLinkIcon({ className = 'w-4 h-4' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-    </svg>
-  );
-}
-function FilterIcon({ className = 'w-4 h-4' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
-  );
-}
-function SearchIcon({ className = 'w-4 h-4' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-function XIcon({ className = 'w-4 h-4' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-    </svg>
-  );
-}
-function BookmarkIcon({ className = 'w-4 h-4', filled = false }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-    </svg>
-  );
-}
-function ChevronDownIcon({ className = 'w-4 h-4' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m6 9 6 6 6-6" />
-    </svg>
+    <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center text-white font-bold text-sm`}>
+      {name.charAt(0).toUpperCase()}
+    </div>
   );
 }
 
@@ -229,22 +190,20 @@ function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
         <div className="flex items-start justify-between p-6 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-              {logo
-                ? <img src={logo} alt={job.company_name} className="w-12 h-12 object-contain" />
-                : <BriefcaseIcon className="w-6 h-6 text-zinc-400" />}
+              <CompanyLogo logo={logo} name={job.company_name} />
             </div>
             <div>
               <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{job.title}</h2>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{job.company_name}</p>
               <div className="flex flex-wrap gap-2 mt-2 text-xs text-zinc-400">
-                <span className="flex items-center gap-1"><MapPinIcon />{location}</span>
-                {type && <span className="flex items-center gap-1"><ClockIcon />{type.replace('_', ' ')}</span>}
+                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>
+                {type && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{type.replace('_', ' ')}</span>}
                 {job.salary && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{job.salary}</span>}
               </div>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors">
-            <XIcon className="w-5 h-5" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -277,7 +236,7 @@ function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
             rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            Apply Now <ExternalLinkIcon />
+            Apply Now <ExternalLink className="w-4 h-4" />
           </a>
           <button
             onClick={() => onToggleSave(id)}
@@ -287,7 +246,7 @@ function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
                 : 'border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
             }`}
           >
-            <BookmarkIcon filled={isSaved} />
+            <Bookmark className="w-4 h-4" fill={isSaved ? 'currentColor' : 'none'} />
             {isSaved ? 'Saved' : 'Save'}
           </button>
         </div>
@@ -319,8 +278,7 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
           {logo
-            ? <img src={logo} alt={job.company_name} className="w-10 h-10 object-contain" />
-            : <BriefcaseIcon className="w-5 h-5 text-zinc-400" />}
+          <CompanyLogo logo={logo} name={job.company_name} />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -340,8 +298,8 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-            <span className="flex items-center gap-1"><MapPinIcon />{location}</span>
-            {type && <span className="flex items-center gap-1"><ClockIcon />{type.replace('_', ' ')}</span>}
+            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>
+            {type && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{type.replace('_', ' ')}</span>}
             {postedAt && <span>{postedAt}</span>}
           </div>
 
@@ -376,7 +334,7 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
                 : 'text-zinc-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'
             }`}
           >
-            <BookmarkIcon filled={isSaved} />
+            <Bookmark className="w-4 h-4" fill={isSaved ? 'currentColor' : 'none'} />
           </button>
           <a
             href={job.url}
@@ -384,7 +342,7 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
             rel="noopener noreferrer"
             className="p-2 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
           >
-            <ExternalLinkIcon />
+            <ExternalLink className="w-4 h-4" />
           </a>
         </div>
       </div>
@@ -532,7 +490,7 @@ export default function JobsPage() {
                     : 'border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700'
                 }`}
               >
-                <BookmarkIcon filled={showSavedOnly} className="w-3.5 h-3.5" />
+                <Bookmark className="w-3.5 h-3.5" fill={showSavedOnly ? 'currentColor' : 'none'} />
                 Saved {savedIds.size > 0 && `(${savedIds.size})`}
               </button>
               {/* Sort */}
@@ -545,7 +503,7 @@ export default function JobsPage() {
                   <option value="newest">Newest First</option>
                   <option value="salary">Salary Listed</option>
                 </select>
-                <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-400 pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-400 pointer-events-none" />
               </div>
             </div>
           </div>
@@ -593,7 +551,7 @@ export default function JobsPage() {
           {/* Search + filter bar */}
           <div className="flex gap-2 mt-3">
             <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><SearchIcon /></span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><Search className="w-4 h-4" /></span>
               <input
                 type="text"
                 value={search}
@@ -610,13 +568,13 @@ export default function JobsPage() {
                   : 'border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
               }`}
             >
-              <FilterIcon />
+              <Filter className="w-4 h-4" />
               Filters
               {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />}
             </button>
             {hasActiveFilters && (
               <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
-                <XIcon /> Clear
+                <X className="w-4 h-4" /> Clear
               </button>
             )}
           </div>
@@ -660,7 +618,7 @@ export default function JobsPage() {
             </div>
           ) : displayedJobs.length === 0 ? (
             <div className="text-center py-16 text-zinc-400 dark:text-zinc-500">
-              <BriefcaseIcon className="w-10 h-10 mx-auto mb-3 opacity-40" />
+              <Briefcase className="w-10 h-10 mx-auto mb-3 opacity-40" />
               <p className="text-sm">{showSavedOnly ? 'No saved jobs yet.' : 'No jobs found. Try adjusting filters.'}</p>
             </div>
           ) : (
