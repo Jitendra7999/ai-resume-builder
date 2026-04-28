@@ -304,12 +304,10 @@ export async function GET(req: NextRequest) {
         return (data.jobs || []) as NormalizedJob[];
       };
 
-      const results = await Promise.allSettled([
-        fetchSource('jobicy'),
-        fetchSource('arbeitnow'),
-        fetchSource('remoteok'),
-        fetchSource('themuse'),
-      ]);
+      const sources = ['jobicy', 'arbeitnow', 'remoteok', 'themuse'];
+      if (process.env.RAPIDAPI_KEY) sources.push('jsearch');
+
+      const results = await Promise.allSettled(sources.map(fetchSource));
 
       const seen = new Set<string>();
       const combined: NormalizedJob[] = [];
