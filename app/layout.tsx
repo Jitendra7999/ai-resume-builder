@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 };
 
 import { AppLayout } from "@/components/AppLayout";
+import { SessionWrapper } from "@/components/SessionWrapper";
 
 export default function RootLayout({
   children,
@@ -32,9 +33,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppLayout>
-          {children}
-        </AppLayout>
+        <SessionWrapper>
+          <AppLayout>
+            {children}
+          </AppLayout>
+        </SessionWrapper>
       </body>
     </html>
   );
