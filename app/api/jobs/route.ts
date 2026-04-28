@@ -16,6 +16,10 @@ type NormalizedJob = {
   description?: string;
 };
 
+function clean(jobs: NormalizedJob[]) {
+  return jobs.filter((j) => j.title?.trim() && j.company_name?.trim() && j.url?.trim());
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const source = searchParams.get('source') || 'remotive';
@@ -47,7 +51,7 @@ export async function GET(req: NextRequest) {
       const data = await res.json();
       let jobs: NormalizedJob[] = data.jobs || [];
       if (onsite) jobs = jobs.filter((j) => (j.candidate_required_location || '').toLowerCase().includes('india'));
-      return NextResponse.json({ jobs, total: data['job-count'] || 0 });
+      return NextResponse.json({ jobs: clean(jobs), total: data['job-count'] || 0 });
     }
 
     // --- ARBEITNOW ---
@@ -67,7 +71,7 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      return NextResponse.json({ jobs, total: jobs.length });
+      return NextResponse.json({ jobs: clean(jobs), total: jobs.length });
     }
 
     // --- JOBICY ---
@@ -112,7 +116,7 @@ export async function GET(req: NextRequest) {
         description: j.jobDescription,
       }));
 
-      return NextResponse.json({ jobs, total: data.totalCount || jobs.length });
+      return NextResponse.json({ jobs: clean(jobs), total: data.totalCount || jobs.length });
     }
 
     // --- THE MUSE ---
@@ -158,7 +162,7 @@ export async function GET(req: NextRequest) {
         return true;
       });
 
-      return NextResponse.json({ jobs, total: data.total || jobs.length });
+      return NextResponse.json({ jobs: clean(jobs), total: data.total || jobs.length });
     }
 
     // --- REMOTEOK ---
@@ -216,6 +220,64 @@ export async function GET(req: NextRequest) {
       const paginated = jobs.slice(start, start + 20);
 
       return NextResponse.json({ jobs: paginated, total: jobs.length });
+    }
+
+    // --- JSEARCH ---
+    if (source === 'jsearch') {
+      const key = process.env.RAPIDAPI_KEY;
+      if (!key) return NextResponse.json({ jobs: [], total: 0, error: 'Missing RAPIDAPI_KEY' });
+
+      const params = new URLSearchParams();
+      params.set('query', search || 'software developer');
+      params.set('page', String(page));
+      params.set('num_pages', '1');
+      params.set('date_posted', 'all');
+      if (onsite) params.set('query', `${search || 'software developer'} in India`);
+
+      const res = await fetch(`https://jsearch.p.rapidapi.com/search?${params}`, {
+        headers: {
+          'x-rapidapi-key': key,
+          'x-rapidapi-host': 'jsearch.p.rapidapi.com',
+        },
+      });
+      const data = await res.json();
+
+      const jobs: NormalizedJob[] = (data.data || [])
+        .filter((j: { job_title?: string; employer_name?: string; job_apply_link?: string }) =>
+          j.job_title && j.employer_name && j.job_apply_link
+        )
+        .map((j: {
+          job_id: string;
+          job_title: string;
+          employer_name: string;
+          employer_logo?: string;
+          job_employment_type?: string;
+          job_posted_at_datetime_utc?: string;
+          job_city?: string;
+          job_country?: string;
+          job_is_remote?: boolean;
+          job_min_salary?: number;
+          job_max_salary?: number;
+          job_salary_currency?: string;
+          job_apply_link: string;
+          job_description?: string;
+          job_required_skills?: string[];
+        }) => ({
+          id: j.job_id,
+          title: j.job_title,
+          company_name: j.employer_name,
+          company_logo: j.employer_logo,
+          tags: j.job_required_skills?.slice(0, 5) || [],
+          job_type: j.job_employment_type,
+          publication_date: j.job_posted_at_datetime_utc,
+          candidate_required_location: j.job_is_remote ? 'Worldwide' : `${j.job_city || ''} ${j.job_country || ''}`.trim(),
+          salary: j.job_min_salary ? `${j.job_salary_currency || '$'}${Math.round(j.job_min_salary / 1000)}k–${Math.round((j.job_max_salary || j.job_min_salary) / 1000)}k` : undefined,
+          url: j.job_apply_link,
+          remote: j.job_is_remote,
+          description: j.job_description,
+        }));
+
+      return NextResponse.json({ jobs: clean(jobs), total: data.data?.length || 0 });
     }
 
     return NextResponse.json({ jobs: [], total: 0 });

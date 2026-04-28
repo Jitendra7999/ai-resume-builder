@@ -385,7 +385,7 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [source, setSource] = useState<'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok'>('jobicy');
+  const [source, setSource] = useState<'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok' | 'jsearch'>('jobicy');
   const [search, setSearch] = useState('');
   const [category] = useState('software-dev');
   const [jobType, setJobType] = useState('');
@@ -557,6 +557,7 @@ export default function JobsPage() {
               { id: 'themuse', label: 'The Muse' },
               { id: 'remoteok', label: 'RemoteOK' },
               { id: 'remotive', label: 'Remotive' },
+              { id: 'jsearch', label: '⚡ JSearch' },
             ] as const).map((s) => (
               <button
                 key={s.id}
