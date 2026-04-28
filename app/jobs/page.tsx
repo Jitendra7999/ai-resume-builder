@@ -46,22 +46,61 @@ const JOB_TYPES = [
 ];
 
 const EXP_LEVELS = [
-  { value: '', label: 'All Levels' },
-  { value: 'intern', label: 'Internship' },
-  { value: 'entry', label: 'Entry Level (0–2 yrs)' },
-  { value: 'mid', label: 'Mid Level (2–5 yrs)' },
-  { value: 'senior', label: 'Senior (5+ yrs)' },
-  { value: 'lead', label: 'Lead / Manager' },
+  { value: '', label: 'All Experience' },
+  { value: '0', label: 'Fresher / Intern' },
+  { value: '1', label: '1+ year' },
+  { value: '2', label: '2+ years' },
+  { value: '3', label: '3+ years' },
+  { value: '5', label: '5+ years' },
+  { value: '8', label: '8+ years' },
 ];
 
-function detectExpLevel(title: string, description?: string): string {
-  const text = `${title} ${description || ''}`.toLowerCase();
-  if (text.includes('intern') || text.includes('internship')) return 'intern';
-  if (text.includes('senior') || text.includes(' sr ') || text.includes('sr.') || text.includes('staff ') || text.includes('principal')) return 'senior';
-  if (text.includes('lead') || text.includes('manager') || text.includes('head of') || text.includes('director')) return 'lead';
-  if (text.includes('junior') || text.includes(' jr ') || text.includes('entry') || text.includes('associate') || text.includes('graduate') || text.includes('0-2') || text.includes('0–2')) return 'entry';
-  if (text.includes('mid') || text.includes('2-5') || text.includes('2–5') || text.includes('3+ year') || text.includes('4+ year')) return 'mid';
+// Extract actual experience requirement from description/title
+function extractExpYears(title: string, description?: string): string {
+  const text = `${title} ${description || ''}`;
+  const stripped = text.replace(/<[^>]+>/g, ' ');
+
+  // Match patterns like "3+ years", "2-5 years", "minimum 3 years", "at least 5 years", "3 years of experience"
+  const patterns = [
+    /(\d+)\s*[-–to]+\s*(\d+)\s*\+?\s*years?\s*(?:of\s*)?(?:experience|exp)/i,
+    /(\d+)\s*\+\s*years?\s*(?:of\s*)?(?:experience|exp)/i,
+    /(?:minimum|min\.?|at\s+least|minimum\s+of)\s+(\d+)\s*\+?\s*years?/i,
+    /(\d+)\s*years?\s*(?:of\s*)?(?:experience|exp)/i,
+    /experience\s*(?:of\s*)?(\d+)\s*\+?\s*years?/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = stripped.match(pattern);
+    if (match) {
+      if (match[2]) return `${match[1]}–${match[2]} yrs exp`;
+      return `${match[1]}+ yrs exp`;
+    }
+  }
+
+  // Intern fallback
+  if (/intern|internship/i.test(stripped)) return 'Internship';
   return '';
+}
+
+// Min years for filtering
+function getMinYears(title: string, description?: string): number {
+  const text = `${title} ${description || ''}`.replace(/<[^>]+>/g, ' ');
+  const match = text.match(/(?:minimum|min\.?|at\s+least)?\s*(\d+)\s*\+?\s*years?\s*(?:of\s*)?(?:experience|exp)/i);
+  if (match) return parseInt(match[1], 10);
+  if (/intern|internship/i.test(text)) return 0;
+  return -1;
+}
+
+// Returns true if job is restricted to Western countries only
+function isWesternOnly(location: string): boolean {
+  const loc = location.toLowerCase();
+  const westernOnly = ['usa only', 'us only', 'united states only', 'uk only', 'canada only', 'australia only', 'eu only', 'europe only'];
+  if (westernOnly.some((w) => loc.includes(w))) return true;
+  // Single-country restricted (not worldwide/remote/india)
+  const restricted = ['united states', 'usa', 'u.s.a', 'canada', 'australia', 'united kingdom', 'germany', 'france', 'netherlands'];
+  const isOpen = loc.includes('worldwide') || loc.includes('remote') || loc.includes('india') || loc.includes('global') || loc === '';
+  if (!isOpen && restricted.some((r) => loc === r || loc === r + '.')) return true;
+  return false;
 }
 
 function getDaysAgo(dateStr?: string, timestamp?: number): number {
@@ -89,9 +128,8 @@ function getJobBadges(job: Job): { label: string; color: string }[] {
 
   if (job.salary) badges.push({ label: '💰 Salary Listed', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' });
 
-  const lvl = detectExpLevel(job.title, job.description);
-  const lvlLabels: Record<string, string> = { intern: '🎓 Intern', entry: '🌱 Entry Level', mid: '🔧 Mid Level', senior: '⭐ Senior', lead: '👑 Lead/Manager' };
-  if (lvl && lvlLabels[lvl]) badges.push({ label: lvlLabels[lvl], color: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-800' });
+  const expReq = extractExpYears(job.title, job.description);
+  if (expReq) badges.push({ label: `📅 ${expReq}`, color: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-800' });
 
   const locationStr = (job.candidate_required_location || job.location || '').toLowerCase();
   const isRemote = job.remote === true || locationStr.includes('worldwide') || locationStr.includes('remote') || locationStr === '';
@@ -454,9 +492,15 @@ export default function JobsPage() {
   // Sort + filter displayed jobs
   const displayedJobs = [...jobs]
     .filter((j) => showSavedOnly ? savedIds.has(String(j.id)) : true)
+    // Filter out western-only jobs
+    .filter((j) => !isWesternOnly(j.candidate_required_location || j.location || ''))
     .filter((j) => {
       if (!expLevel) return true;
-      return detectExpLevel(j.title, j.description) === expLevel;
+      const minYrs = getMinYears(j.title, j.description);
+      const required = parseInt(expLevel, 10);
+      if (expLevel === '0') return minYrs === 0 || minYrs === -1;
+      if (minYrs === -1) return false;
+      return minYrs >= required && minYrs < required + (required >= 5 ? 99 : 2);
     })
     .sort((a, b) => {
       if (sortBy === 'salary') {
