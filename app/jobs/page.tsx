@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Briefcase, MapPin, Clock, ExternalLink, Filter, Search, X,
-  Bookmark, ChevronDown, Building2, Wifi, Globe, Copy, Check
+  Bookmark, ChevronDown, Building2, Wifi, Globe, Copy, Check, Zap
 } from 'lucide-react';
 
 type Job = {
@@ -256,12 +257,13 @@ function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
 }
 
 // --- Job Card ---
-function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
+function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply }: {
   job: Job;
   source: string;
   savedIds: Set<string>;
   onToggleSave: (id: string) => void;
   onOpen: (job: Job) => void;
+  onAutoApply: (job: Job) => void;
 }) {
   const id = String(job.id);
   const isSaved = savedIds.has(id);
@@ -363,6 +365,13 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
             <ExternalLink className="w-3.5 h-3.5" />
             Go to Job
           </a>
+          <button
+            onClick={() => onAutoApply(job)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-violet-600 border-violet-600 text-white hover:bg-violet-700 transition-colors"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            Auto Apply
+          </button>
         </div>
       </div>
     </div>
@@ -386,6 +395,17 @@ export default function JobsPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const router = useRouter();
+
+  const handleAutoApply = (job: Job) => {
+    const params = new URLSearchParams({
+      url: job.url,
+      title: job.title,
+      company: job.company_name,
+      description: job.description?.replace(/<[^>]+>/g, ' ').slice(0, 800) || '',
+    });
+    router.push(`/apply?${params.toString()}`);
+  };
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -651,6 +671,7 @@ export default function JobsPage() {
                     savedIds={savedIds}
                     onToggleSave={toggleSave}
                     onOpen={setSelectedJob}
+                    onAutoApply={handleAutoApply}
                   />
                 ))}
               </div>

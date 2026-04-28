@@ -174,11 +174,17 @@ export async function POST(req: NextRequest) {
         send({ type: 'status', step: 3, message: 'Loading job application page...' });
         await page.goto(payload.jobUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
-        // Step 4: Check for CAPTCHA before filling
-        const captchaBefore = await detectCaptcha(page);
+        // Step 4: Check for CAPTCHA before filling — wait until solved
+        let captchaBefore = await detectCaptcha(page);
         if (captchaBefore) {
-          send({ type: 'captcha', message: '⚠️ CAPTCHA detected on page load! Please solve it in the browser window, then wait...' });
-          await new Promise((r) => setTimeout(r, 20000)); // give user 20s to solve
+          send({ type: 'captcha', message: '⚠️ CAPTCHA detected! Solve it in the browser window. Waiting until resolved...' });
+          // Poll every 3s until CAPTCHA is gone (max 2 min)
+          for (let i = 0; i < 40; i++) {
+            await new Promise((r) => setTimeout(r, 3000));
+            captchaBefore = await detectCaptcha(page);
+            if (!captchaBefore) break;
+          }
+          send({ type: 'status', step: 3, message: 'CAPTCHA resolved. Proceeding to fill form...' });
         }
 
         // Step 5: Fill form
@@ -188,7 +194,7 @@ export async function POST(req: NextRequest) {
         // Step 6: Check for CAPTCHA after filling
         const captchaAfter = await detectCaptcha(page);
         if (captchaAfter) {
-          send({ type: 'captcha', message: '⚠️ CAPTCHA found! Solve it in the browser window before submitting.' });
+          send({ type: 'captcha', message: '⚠️ CAPTCHA appeared after filling! Solve it in the browser before submitting.' });
         } else {
           send({ type: 'status', step: 5, message: '✅ Form filled! Review in browser and click Submit.' });
         }

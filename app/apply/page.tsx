@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Briefcase, Send, User, Mail, Phone, FileText, Zap,
   CheckCircle, XCircle, Loader2, ChevronDown, ChevronUp,
@@ -53,7 +54,8 @@ function now() {
   return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-export default function ApplyPage() {
+function ApplyContent() {
+  const searchParams = useSearchParams();
   const [profile, setProfile] = useState<Profile>(DUMMY_PROFILE);
   const [jobUrl, setJobUrl] = useState('');
   const [jobTitle, setJobTitle] = useState('');
@@ -72,10 +74,18 @@ export default function ApplyPage() {
   const [detectedATS, setDetectedATS] = useState('');
   const logRef = useRef<HTMLDivElement>(null);
 
-  // Load saved profile
+  // Load from URL params (coming from Job Board) + profile
   useEffect(() => {
     localStorage.removeItem('apply_profile');
     setProfile(DUMMY_PROFILE);
+    const url = searchParams.get('url');
+    const title = searchParams.get('title');
+    const company = searchParams.get('company');
+    const description = searchParams.get('description');
+    if (url) setJobUrl(url);
+    if (title) setJobTitle(title);
+    if (company) setCompanyName(company);
+    if (description) setJobDescription(description);
   }, []);
 
   const saveProfile = (updated: Profile) => {
@@ -502,4 +512,13 @@ export default function ApplyPage() {
       </div>
     </div>
   );
+}
+
+export default function ApplyPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-full text-zinc-400">Loading...</div>}>
+      <ApplyContent />
+    </Suspense>
+  );
+}
 }
