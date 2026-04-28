@@ -263,7 +263,7 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply }: {
   savedIds: Set<string>;
   onToggleSave: (id: string) => void;
   onOpen: (job: Job) => void;
-  onAutoApply: (job: Job) => void;
+  onAutoApply?: (job: Job) => void;
 }) {
   const id = String(job.id);
   const isSaved = savedIds.has(id);
@@ -365,13 +365,15 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply }: {
             <ExternalLink className="w-3.5 h-3.5" />
             Go to Job
           </a>
-          <button
-            onClick={() => onAutoApply(job)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-violet-600 border-violet-600 text-white hover:bg-violet-700 transition-colors"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            Auto Apply
-          </button>
+          {onAutoApply && (
+            <button
+              onClick={() => onAutoApply(job)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border bg-violet-600 border-violet-600 text-white hover:bg-violet-700 transition-colors"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Auto Apply
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -383,7 +385,7 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [source, setSource] = useState<'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok'>('jobicy');
+  const [source, setSource] = useState<'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok'>('jobicy');
   const [search, setSearch] = useState('');
   const [category] = useState('software-dev');
   const [jobType, setJobType] = useState('');
@@ -554,6 +556,7 @@ export default function JobsPage() {
               { id: 'arbeitnow', label: 'Arbeitnow' },
               { id: 'themuse', label: 'The Muse' },
               { id: 'remoteok', label: 'RemoteOK' },
+              { id: 'remotive', label: 'Remotive' },
             ] as const).map((s) => (
               <button
                 key={s.id}
@@ -670,7 +673,7 @@ export default function JobsPage() {
                     savedIds={savedIds}
                     onToggleSave={toggleSave}
                     onOpen={setSelectedJob}
-                    onAutoApply={handleAutoApply}
+                    onAutoApply={source !== 'remotive' ? handleAutoApply : undefined}
                   />
                 ))}
               </div>
