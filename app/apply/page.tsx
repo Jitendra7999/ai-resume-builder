@@ -27,11 +27,11 @@ type LogEntry = {
 };
 
 const DUMMY_PROFILE: Profile = {
-  firstName: 'Jitendra',
-  lastName: 'Yadav',
-  email: 'jitendra7999yadav@gmail.com',
-  phone: '+91 7999759371',
-  linkedin: 'https://linkedin.com/in/jitendra-singh-yadav-107490245',
+  firstName: 'Arjun',
+  lastName: 'Sharma',
+  email: 'test@gmail.com',
+  phone: '+91 9876543210',
+  linkedin: 'https://linkedin.com/in/arjun-sharma-dev',
   resumePath: '',
   experience: 'Full Stack Developer at Techstuff Pvt Ltd (Jan 2023 - Present). Built and deployed full stack web applications using React, Node.js, Next.js, MongoDB, NestJS.',
   education: 'B.Tech in Computer Science from RGPV Bhopal University (2017-2021)',
@@ -74,8 +74,8 @@ export default function ApplyPage() {
 
   // Load saved profile
   useEffect(() => {
-    const saved = localStorage.getItem('apply_profile');
-    if (saved) setProfile(JSON.parse(saved));
+    localStorage.removeItem('apply_profile');
+    setProfile(DUMMY_PROFILE);
   }, []);
 
   const saveProfile = (updated: Profile) => {
@@ -200,10 +200,24 @@ export default function ApplyPage() {
               setCoverLetter(event.coverLetter);
             }
             if (event.type === 'done') {
-              setDetectedATS(event.ats || detectedATS);
+              const atsVal = event.ats || detectedATS;
+              setDetectedATS(atsVal);
               setDone(true);
               setApplying(false);
               setLogs((prev) => [...prev, { type: 'done', message: 'Application process completed.', time: now() }]);
+              // Save to tracker
+              const existing = JSON.parse(localStorage.getItem('applied_jobs') || '[]');
+              const entry = {
+                id: Date.now().toString(),
+                jobTitle,
+                companyName,
+                jobUrl,
+                ats: atsVal,
+                appliedAt: new Date().toISOString(),
+                status: 'Applied',
+                notes: '',
+              };
+              localStorage.setItem('applied_jobs', JSON.stringify([entry, ...existing]));
             }
             if (event.type === 'error') {
               setHasError(true);
