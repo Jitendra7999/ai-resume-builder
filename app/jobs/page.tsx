@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 type Job = {
   id: string | number;
@@ -19,6 +19,7 @@ type Job = {
   salary?: string;
   url: string;
   remote?: boolean;
+  description?: string;
 };
 
 const REMOTIVE_CATEGORIES = [
@@ -46,52 +47,70 @@ const JOB_TYPES = [
   { value: 'freelance', label: 'Freelance' },
 ];
 
+function getDaysAgo(dateStr?: string, timestamp?: number): number {
+  const date = dateStr ? new Date(dateStr) : timestamp ? new Date(timestamp * 1000) : null;
+  if (!date) return 999;
+  return Math.floor((Date.now() - date.getTime()) / 86400000);
+}
+
 function timeAgo(dateStr?: string, timestamp?: number): string {
   const date = dateStr ? new Date(dateStr) : timestamp ? new Date(timestamp * 1000) : null;
   if (!date) return '';
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
   return `${Math.floor(diff / 2592000)}mo ago`;
 }
 
+function getJobBadges(job: Job): { label: string; color: string }[] {
+  const badges: { label: string; color: string }[] = [];
+  const days = getDaysAgo(job.publication_date, job.created_at);
+
+  if (days === 0) badges.push({ label: '✨ New Today', color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' });
+  else if (days <= 3) badges.push({ label: '🔥 Apply Soon', color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' });
+
+  if (job.salary) badges.push({ label: '💰 Salary Listed', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' });
+
+  const isRemote = job.remote === true ||
+    (job.candidate_required_location || '').toLowerCase().includes('worldwide') ||
+    (job.candidate_required_location || '').toLowerCase().includes('remote');
+
+  if (isRemote) badges.push({ label: '🏠 Remote', color: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800' });
+  else if (job.location && !isRemote) badges.push({ label: '🏢 On-site', color: 'bg-zinc-50 text-zinc-700 border-zinc-200 dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600' });
+
+  return badges;
+}
+
+// --- Icons ---
 function BriefcaseIcon({ className = 'w-5 h-5' }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
-      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      <rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </svg>
   );
 }
-
 function MapPinIcon({ className = 'w-3 h-3' }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" />
     </svg>
   );
 }
-
 function ClockIcon({ className = 'w-3 h-3' }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
+      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
     </svg>
   );
 }
-
 function ExternalLinkIcon({ className = 'w-4 h-4' }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M15 3h6v6" />
-      <path d="M10 14 21 3" />
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
     </svg>
   );
 }
-
 function FilterIcon({ className = 'w-4 h-4' }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -99,127 +118,326 @@ function FilterIcon({ className = 'w-4 h-4' }) {
     </svg>
   );
 }
-
 function SearchIcon({ className = 'w-4 h-4' }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
+      <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
     </svg>
   );
 }
-
 function XIcon({ className = 'w-4 h-4' }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
+      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+    </svg>
+  );
+}
+function BookmarkIcon({ className = 'w-4 h-4', filled = false }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
+}
+function ChevronDownIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
 
-function JobCard({ job, source }: { job: Job; source: string }) {
+// --- Job Detail Drawer ---
+function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
+  job: Job;
+  onClose: () => void;
+  savedIds: Set<string>;
+  onToggleSave: (id: string) => void;
+}) {
+  const id = String(job.id);
+  const isSaved = savedIds.has(id);
+  const badges = getJobBadges(job);
+  const location = job.candidate_required_location || job.location || (job.remote ? 'Remote' : 'Worldwide');
+  const type = job.job_type || job.job_types?.[0] || '';
+  const logo = job.company_logo_url || job.company_logo;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-2xl bg-white dark:bg-zinc-900 h-full flex flex-col shadow-2xl overflow-hidden">
+        {/* Drawer header */}
+        <div className="flex items-start justify-between p-6 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {logo
+                ? <img src={logo} alt={job.company_name} className="w-12 h-12 object-contain" />
+                : <BriefcaseIcon className="w-6 h-6 text-zinc-400" />}
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{job.title}</h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{job.company_name}</p>
+              <div className="flex flex-wrap gap-2 mt-2 text-xs text-zinc-400">
+                <span className="flex items-center gap-1"><MapPinIcon />{location}</span>
+                {type && <span className="flex items-center gap-1"><ClockIcon />{type.replace('_', ' ')}</span>}
+                {job.salary && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{job.salary}</span>}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors">
+            <XIcon className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Badges */}
+        {badges.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-6 pt-4 shrink-0">
+            {badges.map((b) => (
+              <span key={b.label} className={`px-2.5 py-1 text-xs font-medium rounded-full border ${b.color}`}>{b.label}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Description */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {job.description ? (
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_strong]:font-semibold"
+              dangerouslySetInnerHTML={{ __html: job.description }}
+            />
+          ) : (
+            <p className="text-sm text-zinc-400">No description available.</p>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700 shrink-0">
+          <a
+            href={job.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Apply Now <ExternalLinkIcon />
+          </a>
+          <button
+            onClick={() => onToggleSave(id)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
+              isSaved
+                ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700'
+                : 'border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+            }`}
+          >
+            <BookmarkIcon filled={isSaved} />
+            {isSaved ? 'Saved' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Job Card ---
+function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
+  job: Job;
+  source: string;
+  savedIds: Set<string>;
+  onToggleSave: (id: string) => void;
+  onOpen: (job: Job) => void;
+}) {
+  const id = String(job.id);
+  const isSaved = savedIds.has(id);
   const logo = job.company_logo_url || job.company_logo;
   const location = job.candidate_required_location || job.location || (job.remote ? 'Remote' : 'Worldwide');
   const type = job.job_type || job.job_types?.[0] || '';
   const postedAt = timeAgo(job.publication_date, job.created_at);
-  const tags = job.tags?.slice(0, 4) || [];
+  const tags = job.tags?.slice(0, 3) || [];
+  const badges = getJobBadges(job);
 
   return (
-    <div className="group bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-200">
+    <div className="group bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-200 cursor-pointer"
+      onClick={() => onOpen(job)}>
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {logo ? (
-            <img src={logo} alt={job.company_name} className="w-10 h-10 object-contain" />
-          ) : (
-            <BriefcaseIcon className="w-5 h-5 text-zinc-400" />
-          )}
+          {logo
+            ? <img src={logo} alt={job.company_name} className="w-10 h-10 object-contain" />
+            : <BriefcaseIcon className="w-5 h-5 text-zinc-400" />}
         </div>
+
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-            {job.title}
-          </h3>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{job.company_name}</p>
-          <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-            <span className="flex items-center gap-1">
-              <MapPinIcon /> {location}
-            </span>
-            {type && (
-              <span className="flex items-center gap-1">
-                <ClockIcon /> {type.replace('_', ' ')}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                {job.title}
+              </h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{job.company_name}</p>
+            </div>
+            {/* Salary badge */}
+            {job.salary && (
+              <span className="flex-shrink-0 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                {job.salary}
               </span>
             )}
-            {postedAt && <span>{postedAt}</span>}
-            {job.salary && (
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">{job.salary}</span>
-            )}
           </div>
+
+          <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+            <span className="flex items-center gap-1"><MapPinIcon />{location}</span>
+            {type && <span className="flex items-center gap-1"><ClockIcon />{type.replace('_', ' ')}</span>}
+            {postedAt && <span>{postedAt}</span>}
+          </div>
+
+          {/* Smart badges */}
+          {badges.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {badges.map((b) => (
+                <span key={b.label} className={`px-2 py-0.5 text-xs font-medium rounded-full border ${b.color}`}>{b.label}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Skill tags */}
           {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3">
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {tags.map((tag) => (
-                <span key={tag} className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800">
+                <span key={tag} className="px-2 py-0.5 text-xs rounded-full bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">
                   {tag}
                 </span>
               ))}
             </div>
           )}
         </div>
-        <a
-          href={job.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-shrink-0 p-2 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-        >
-          <ExternalLinkIcon />
-        </a>
+
+        {/* Action buttons */}
+        <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => onToggleSave(id)}
+            className={`p-2 rounded-lg transition-colors ${
+              isSaved
+                ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                : 'text-zinc-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+            }`}
+          >
+            <BookmarkIcon filled={isSaved} />
+          </button>
+          <a
+            href={job.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+          >
+            <ExternalLinkIcon />
+          </a>
+        </div>
       </div>
     </div>
   );
 }
 
+// --- Main Page ---
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [source, setSource] = useState<'remotive' | 'arbeitnow'>('remotive');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [jobType, setJobType] = useState('');
-  const [remoteOnly, setRemoteOnly] = useState(false);
+  const [workMode, setWorkMode] = useState<'all' | 'remote' | 'onsite'>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'salary'>('newest');
   const [total, setTotal] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchJobs = useCallback(async () => {
-    setLoading(true);
+  // Load saved jobs from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('saved_jobs');
+    if (stored) setSavedIds(new Set(JSON.parse(stored)));
+  }, []);
+
+  const toggleSave = (id: string) => {
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem('saved_jobs', JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const fetchJobs = useCallback(async (pageNum = 1, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
+
     try {
-      const params = new URLSearchParams({ source });
+      const params = new URLSearchParams({ source, page: String(pageNum) });
       if (search) params.set('search', search);
       if (category) params.set('category', category);
       if (jobType) params.set('job_type', jobType);
-      if (remoteOnly) params.set('remote', 'true');
+      if (workMode === 'remote') params.set('remote', 'true');
+      if (workMode === 'onsite') params.set('onsite', 'true');
 
       const res = await fetch(`/api/jobs?${params}`);
       const data = await res.json();
-      setJobs(data.jobs || []);
+      const fetched: Job[] = data.jobs || [];
+
+      setJobs((prev) => append ? [...prev, ...fetched] : fetched);
       setTotal(data.total || 0);
+      setHasMore(fetched.length === 20);
     } catch {
-      setJobs([]);
+      if (!append) setJobs([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [source, search, category, jobType, remoteOnly]);
+  }, [source, search, category, jobType, workMode]);
 
+  // Debounce search
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setPage(1);
+      fetchJobs(1, false);
+    }, 400);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+  }, [search]);
+
+  // Immediate fetch on other filter changes
+  useEffect(() => {
+    setPage(1);
+    fetchJobs(1, false);
+  }, [source, category, jobType, workMode]);
+
+  const loadMore = () => {
+    const next = page + 1;
+    setPage(next);
+    fetchJobs(next, true);
+  };
 
   const clearFilters = () => {
     setSearch('');
     setCategory('');
     setJobType('');
-    setRemoteOnly(false);
+    setWorkMode('all');
+    setSortBy('newest');
   };
 
-  const hasActiveFilters = search || category || jobType || remoteOnly;
+  const hasActiveFilters = search || category || jobType || workMode !== 'all';
+
+  // Sort + filter displayed jobs
+  const displayedJobs = [...jobs]
+    .filter((j) => showSavedOnly ? savedIds.has(String(j.id)) : true)
+    .sort((a, b) => {
+      if (sortBy === 'salary') {
+        const aHas = a.salary ? 1 : 0;
+        const bHas = b.salary ? 1 : 0;
+        return bHas - aHas;
+      }
+      return getDaysAgo(a.publication_date, a.created_at) - getDaysAgo(b.publication_date, b.created_at);
+    });
 
   return (
     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-900">
@@ -230,8 +448,34 @@ export default function JobsPage() {
             <div>
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Job Board</h1>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-                {loading ? 'Loading...' : total > 0 ? `${total} jobs found` : 'Discover remote opportunities'}
+                {loading ? 'Loading...' : `${displayedJobs.length} jobs${total > displayedJobs.length ? ` of ${total}` : ''}`}
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Saved jobs toggle */}
+              <button
+                onClick={() => setShowSavedOnly(!showSavedOnly)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  showSavedOnly
+                    ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700'
+                    : 'border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <BookmarkIcon filled={showSavedOnly} className="w-3.5 h-3.5" />
+                Saved {savedIds.size > 0 && `(${savedIds.size})`}
+              </button>
+              {/* Sort */}
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'newest' | 'salary')}
+                  className="appearance-none pl-3 pr-8 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="salary">Salary Listed</option>
+                </select>
+                <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 
@@ -240,7 +484,7 @@ export default function JobsPage() {
             {(['remotive', 'arbeitnow'] as const).map((s) => (
               <button
                 key={s}
-                onClick={() => { setSource(s); setCategory(''); setJobType(''); setRemoteOnly(false); }}
+                onClick={() => { setSource(s); setCategory(''); setJobType(''); setWorkMode('all'); }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   source === s
                     ? 'bg-emerald-600 text-white'
@@ -252,12 +496,27 @@ export default function JobsPage() {
             ))}
           </div>
 
+          {/* Work mode pills */}
+          <div className="flex gap-2 mt-3">
+            {(['all', 'remote', 'onsite'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setWorkMode(mode)}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  workMode === mode
+                    ? 'bg-zinc-800 text-white border-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-100'
+                    : 'border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400'
+                }`}
+              >
+                {mode === 'all' ? '🌐 All' : mode === 'remote' ? '🏠 Remote' : '🏢 On-site'}
+              </button>
+            ))}
+          </div>
+
           {/* Search + filter bar */}
           <div className="flex gap-2 mt-3">
             <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
-                <SearchIcon />
-              </span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><SearchIcon /></span>
               <input
                 type="text"
                 value={search}
@@ -279,10 +538,7 @@ export default function JobsPage() {
               {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />}
             </button>
             {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1 px-3 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
-              >
+              <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                 <XIcon /> Clear
               </button>
             )}
@@ -293,36 +549,15 @@ export default function JobsPage() {
             <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
               {source === 'remotive' && (
                 <>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    {REMOTIVE_CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
+                  <select value={category} onChange={(e) => setCategory(e.target.value)}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    {REMOTIVE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
-                  <select
-                    value={jobType}
-                    onChange={(e) => setJobType(e.target.value)}
-                    className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    {JOB_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
+                  <select value={jobType} onChange={(e) => setJobType(e.target.value)}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </>
-              )}
-              {source === 'arbeitnow' && (
-                <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={remoteOnly}
-                    onChange={(e) => setRemoteOnly(e.target.checked)}
-                    className="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  Remote only
-                </label>
               )}
             </div>
           )}
@@ -347,20 +582,52 @@ export default function JobsPage() {
                 </div>
               ))}
             </div>
-          ) : jobs.length === 0 ? (
+          ) : displayedJobs.length === 0 ? (
             <div className="text-center py-16 text-zinc-400 dark:text-zinc-500">
               <BriefcaseIcon className="w-10 h-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">No jobs found. Try adjusting your filters.</p>
+              <p className="text-sm">{showSavedOnly ? 'No saved jobs yet.' : 'No jobs found. Try adjusting filters.'}</p>
             </div>
           ) : (
-            <div className="grid gap-3">
-              {jobs.map((job) => (
-                <JobCard key={`${source}-${job.id}`} job={job} source={source} />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-3">
+                {displayedJobs.map((job) => (
+                  <JobCard
+                    key={`${source}-${job.id}`}
+                    job={job}
+                    source={source}
+                    savedIds={savedIds}
+                    onToggleSave={toggleSave}
+                    onOpen={setSelectedJob}
+                  />
+                ))}
+              </div>
+
+              {/* Load more */}
+              {hasMore && !showSavedOnly && (
+                <div className="flex justify-center mt-6">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="px-6 py-2.5 text-sm font-medium rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                  >
+                    {loadingMore ? 'Loading...' : 'Load More Jobs'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* Job detail drawer */}
+      {selectedJob && (
+        <JobDrawer
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          savedIds={savedIds}
+          onToggleSave={toggleSave}
+        />
+      )}
     </div>
   );
 }
