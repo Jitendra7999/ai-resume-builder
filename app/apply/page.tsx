@@ -83,23 +83,71 @@ function ApplyContent() {
     if (url) setDetectedATS(detectATS(url));
   }, []);
 
-  // Load profile from MongoDB + match resume by job title
+  // Load profile from MongoDB + match or generate resume
   useEffect(() => {
     if (!userId) return;
+    const title = searchParams.get('title') || '';
+    const desc = searchParams.get('description') || '';
+
     fetch('/api/profile', { headers: { 'x-user-id': userId } })
       .then((r) => r.json())
-      .then((data) => {
-        if (data.user) {
-          setProfile(data.user.profile);
-          const resumes = data.user.resumes || [];
-          if (resumes.length > 0) {
-            const title = searchParams.get('title') || '';
-            // Try to match resume by jobTitle keyword
-            const matched = resumes.find((r: any) =>
-              title && r.jobTitle && title.toLowerCase().includes(r.jobTitle.toLowerCase().split(' ')[0])
-            );
-            setResumeContent((matched || resumes[0]).content || '');
-          }
+      .then(async (data) => {
+        if (!data.user) return;
+        const p = data.user.profile;
+        setProfile(p);
+        const resumes = data.user.resumes || [];
+
+        // Try to match resume by job title keyword
+        const matched = resumes.find((r: any) =>
+          title && r.jobTitle && title.toLowerCase().includes(r.jobTitle.toLowerCase().split(' ')[0])
+        );
+
+        if (matched) {
+          setResumeContent(matched.content || '');
+        } else if (resumes.length > 0) {
+          // Use first available resume
+          setResumeContent(resumes[0].content || '');
+        } else if (title && p) {
+          // No resume at all — generate one and save
+          setLogs([{ type: 'status', message: 'No resume found — generating one for this job...', time: now() }]);
+          try {
+            const res = await fetch('/api/resume', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jd: desc || title,
+                personalDetails: `${p.name} | ${p.email} | ${p.phone} | ${p.linkedin}`,
+                experience: p.experience,
+                education: p.education,
+                projects: '',
+              }),
+            });
+            const reader = res.body?.getReader();
+            const decoder = new TextDecoder();
+            let generated = '';
+            if (reader) {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                for (const line of chunk.split('\n')) {
+                  if (line.startsWith('0:')) {
+                    try { generated += JSON.parse(line.slice(2)); } catch { /* skip */ }
+                  }
+                }
+              }
+            }
+            if (generated) {
+              setResumeContent(generated);
+              setLogs([{ type: 'status', message: '✅ Resume generated and saved to your profile.', time: now() }]);
+              // Save to profile
+              await fetch('/api/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+                body: JSON.stringify({ action: 'addResume', resume: { name: `${title} Resume`, jobTitle: title, content: generated } }),
+              });
+            }
+          } catch { /* silent fail */ }
         }
       })
       .finally(() => setLoadingProfile(false));
