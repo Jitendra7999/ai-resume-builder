@@ -17,7 +17,14 @@ type NormalizedJob = {
 };
 
 function clean(jobs: NormalizedJob[]) {
-  return jobs.filter((j) => j.title?.trim() && j.company_name?.trim() && j.url?.trim());
+  return jobs.filter((j) => {
+    if (!j.title?.trim() || !j.company_name?.trim() || !j.url?.trim()) return false;
+    // Keep only India, Worldwide, Remote, Global jobs
+    const loc = (j.candidate_required_location || j.location || '').toLowerCase().trim();
+    if (!loc) return true; // empty = worldwide
+    const allowed = ['india', 'worldwide', 'remote', 'global', 'anywhere', 'international', 'work from home', 'wfh'];
+    return allowed.some((a) => loc.includes(a));
+  });
 }
 
 export async function GET(req: NextRequest) {
@@ -281,6 +288,47 @@ export async function GET(req: NextRequest) {
         }));
 
       return NextResponse.json({ jobs: clean(jobs), total: data.data?.length || 0 });
+    }
+
+    // --- ALL SOURCES ---
+    if (source === 'all') {
+      const base = new URL(req.url);
+      const fetchSource = async (src: string) => {
+        const p = new URLSearchParams({ source: src, page: String(page) });
+        if (search) p.set('search', search);
+        if (onsite) p.set('onsite', 'true');
+        if (remote) p.set('remote', 'true');
+        const res = await fetch(`${base.origin}/api/jobs?${p}`).catch(() => null);
+        if (!res) return [];
+        const data = await res.json().catch(() => ({ jobs: [] }));
+        return (data.jobs || []) as NormalizedJob[];
+      };
+
+      const results = await Promise.allSettled([
+        fetchSource('jobicy'),
+        fetchSource('arbeitnow'),
+        fetchSource('remoteok'),
+        fetchSource('themuse'),
+      ]);
+
+      const seen = new Set<string>();
+      const combined: NormalizedJob[] = [];
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          for (const job of r.value) {
+            const key = job.url || String(job.id);
+            if (!seen.has(key)) { seen.add(key); combined.push(job); }
+          }
+        }
+      }
+
+      combined.sort((a, b) => {
+        const da = a.publication_date ? new Date(a.publication_date).getTime() : 0;
+        const db = b.publication_date ? new Date(b.publication_date).getTime() : 0;
+        return db - da;
+      });
+
+      return NextResponse.json({ jobs: combined, total: combined.length });
     }
 
     return NextResponse.json({ jobs: [], total: 0 });

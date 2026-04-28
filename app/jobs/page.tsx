@@ -404,7 +404,7 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [source, setSource] = useState<'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok' | 'jsearch'>('jobicy');
+  const [source, setSource] = useState<'all' | 'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok' | 'jsearch'>('all');
   const [search, setSearch] = useState('');
   const [category] = useState('software-dev');
   const [jobType, setJobType] = useState('');
@@ -561,8 +561,6 @@ export default function JobsPage() {
   // Sort + filter displayed jobs
   const displayedJobs = [...jobs]
     .filter((j) => showSavedOnly ? savedIds.has(String(j.id)) : true)
-    // Filter out western-only jobs
-    .filter((j) => !isWesternOnly(j.candidate_required_location || j.location || ''))
     .filter((j) => {
       if (!expLevel) return true;
       const minYrs = getMinYears(j.title, j.description);
@@ -633,6 +631,7 @@ export default function JobsPage() {
           {/* Source tabs */}
           <div className="flex flex-wrap gap-2 mt-4">
             {([
+              { id: 'all', label: '🌐 All Jobs' },
               { id: 'jobicy', label: 'Jobicy' },
               { id: 'arbeitnow', label: 'Arbeitnow' },
               { id: 'themuse', label: 'The Muse' },
