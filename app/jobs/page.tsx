@@ -383,7 +383,7 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [source, setSource] = useState<'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok'>('remotive');
+  const [source, setSource] = useState<'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok'>('jobicy');
   const [search, setSearch] = useState('');
   const [category] = useState('software-dev');
   const [jobType, setJobType] = useState('');
@@ -550,9 +550,8 @@ export default function JobsPage() {
           {/* Source tabs */}
           <div className="flex flex-wrap gap-2 mt-4">
             {([
-              { id: 'remotive', label: 'Remotive' },
-              { id: 'arbeitnow', label: 'Arbeitnow' },
               { id: 'jobicy', label: 'Jobicy' },
+              { id: 'arbeitnow', label: 'Arbeitnow' },
               { id: 'themuse', label: 'The Muse' },
               { id: 'remoteok', label: 'RemoteOK' },
             ] as const).map((s) => (
