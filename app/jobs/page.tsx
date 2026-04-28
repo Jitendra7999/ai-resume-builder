@@ -399,7 +399,7 @@ export default function JobsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [source, setSource] = useState<'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok'>('remotive');
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('');
+  const [category] = useState('software-dev');
   const [jobType, setJobType] = useState('');
   const [workMode, setWorkMode] = useState<'all' | 'remote' | 'onsite'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'salary'>('newest');
@@ -480,7 +480,6 @@ export default function JobsPage() {
 
   const clearFilters = () => {
     setSearch('');
-    setCategory('');
     setJobType('');
     setWorkMode('all');
     setSortBy('newest');
@@ -562,7 +561,7 @@ export default function JobsPage() {
             ] as const).map((s) => (
               <button
                 key={s.id}
-                onClick={() => { setSource(s.id); setCategory(''); setJobType(''); setWorkMode('all'); }}
+                onClick={() => { setSource(s.id); setJobType(''); setWorkMode('all'); }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   source === s.id
                     ? 'bg-emerald-600 text-white'
@@ -626,16 +625,10 @@ export default function JobsPage() {
           {showFilters && (
             <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
               {source === 'remotive' && (
-                <>
-                  <select value={category} onChange={(e) => setCategory(e.target.value)}
-                    className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    {REMOTIVE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                  </select>
-                  <select value={jobType} onChange={(e) => setJobType(e.target.value)}
-                    className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </>
+                <select value={jobType} onChange={(e) => setJobType(e.target.value)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
               )}
               {/* Experience level — works on all sources */}
               <select value={expLevel} onChange={(e) => setExpLevel(e.target.value)}
