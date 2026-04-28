@@ -331,31 +331,37 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen }: {
         </div>
 
         {/* Action buttons */}
-        <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-col gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => onToggleSave(id)}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
               isSaved
-                ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                : 'text-zinc-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                ? 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400'
+                : 'text-zinc-500 border-zinc-200 dark:border-zinc-600 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 dark:hover:bg-amber-900/20'
             }`}
           >
-            <Bookmark className="w-4 h-4" fill={isSaved ? 'currentColor' : 'none'} />
+            <Bookmark className="w-3.5 h-3.5" fill={isSaved ? 'currentColor' : 'none'} />
+            {isSaved ? 'Saved' : 'Save'}
           </button>
           <button
             onClick={copyLink}
-            className={`p-2 rounded-lg transition-colors ${copied ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700'}`}
-            title="Copy job link"
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+              copied
+                ? 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-700'
+                : 'text-zinc-500 border-zinc-200 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+            }`}
           >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? 'Copied!' : 'Copy Link'}
           </button>
           <a
             href={job.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-2 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 dark:hover:bg-emerald-900/20 transition-colors"
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-3.5 h-3.5" />
+            Go to Job
           </a>
         </div>
       </div>
