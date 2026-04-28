@@ -145,6 +145,15 @@ export function AppSidebar() {
             <BookOpenIcon className="w-4 h-4 opacity-70" />
             <span className="truncate">Interview Prep</span>
           </Link>
+          <Link href="/english-trainer" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
+            <LanguageIcon className="w-4 h-4 opacity-70" />
+            <span className="truncate">English Trainer</span>
+          </Link>
+
+          <div className="px-3 pb-2 pt-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+            Job Hunt v2
+            <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full normal-case font-medium tracking-normal">New</span>
+          </div>
           <Link href="/jobs" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
             <JobsBoardIcon className="w-4 h-4 opacity-70" />
             <span className="truncate">Job Board</span>
@@ -152,15 +161,10 @@ export function AppSidebar() {
           <Link href="/apply" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
             <JobsBoardIcon className="w-4 h-4 opacity-70" />
             <span className="truncate">Auto Apply</span>
-            <span className="ml-auto text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">New</span>
           </Link>
           <Link href="/tracker" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
             <TargetIcon className="w-4 h-4 opacity-70" />
             <span className="truncate">Job Tracker</span>
-          </Link>
-          <Link href="/english-trainer" className="group flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors text-zinc-700 dark:text-zinc-300 font-medium">
-            <LanguageIcon className="w-4 h-4 opacity-70" />
-            <span className="truncate">English Trainer</span>
           </Link>
         </div>
 
