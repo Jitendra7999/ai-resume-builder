@@ -8,6 +8,38 @@ export interface IResume {
   createdAt: Date;
 }
 
+export interface IAppliedJob {
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  jobUrl: string;
+  appliedAt: Date;
+  status: 'applied' | 'interviewing' | 'rejected' | 'offered' | 'ghosted';
+  ats?: string;
+  coverLetter?: string;
+  interviewDate?: Date;
+  interviewType?: string; // phone, video, in-person
+  rejectedAt?: Date;
+  rejectionReason?: string;
+  offerSalary?: string;
+  notes?: string;
+  source?: string; // which job board
+  matchScore?: number;
+  resumeUsed?: string; // resume ID
+  responseReceivedAt?: Date;
+}
+
+export interface IScheduledJob {
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  jobUrl: string;
+  scheduledApplyTime: Date;
+  actualAppliedAt?: Date;
+  status: 'pending' | 'applied' | 'failed';
+  reason?: string;
+}
+
 export interface IUser extends Document {
   username: string;
   password: string;
@@ -18,7 +50,7 @@ export interface IUser extends Document {
     linkedin: string;
     role: string;
     expYears: string;
-    skills: string;
+    skills: string; // comma-separated
     experience: string;
     education: string;
   };
@@ -28,8 +60,27 @@ export interface IUser extends Document {
   };
   resumes: IResume[];
   hrContacts: any[];
-  appliedJobs: any[];
+  appliedJobs: IAppliedJob[];
   savedJobs: string[];
+  scheduledJobs: IScheduledJob[];
+  applicationAnalytics: {
+    totalApplications: number;
+    totalResponses: number;
+    responseRate: number; // percentage
+    bestApplyTimes: Array<{
+      hour: number; // 0-23
+      dayOfWeek?: number; // 0-6 (Mon-Sun)
+      responseRate: number;
+      applicationsCount: number;
+    }>;
+    lastUpdated: Date;
+  };
+  preferences: {
+    autoSchedule: boolean;
+    dailyApplyGoal: number; // default 100
+    maxApplicationsPerHour: number; // default 10
+    preferredApplyTimes?: number[]; // hours like [9, 14, 17]
+  };
 }
 
 const ResumeSchema = new Schema({
@@ -38,6 +89,38 @@ const ResumeSchema = new Schema({
   content: String,
   jobTitle: String,
   createdAt: { type: Date, default: Date.now },
+});
+
+const AppliedJobSchema = new Schema<IAppliedJob>({
+  jobId: String,
+  jobTitle: String,
+  company: String,
+  jobUrl: String,
+  appliedAt: { type: Date, default: Date.now },
+  status: { type: String, enum: ['applied', 'interviewing', 'rejected', 'offered', 'ghosted'], default: 'applied' },
+  ats: String,
+  coverLetter: String,
+  interviewDate: Date,
+  interviewType: String,
+  rejectedAt: Date,
+  rejectionReason: String,
+  offerSalary: String,
+  notes: String,
+  source: String,
+  matchScore: Number,
+  resumeUsed: String,
+  responseReceivedAt: Date,
+});
+
+const ScheduledJobSchema = new Schema<IScheduledJob>({
+  jobId: String,
+  jobTitle: String,
+  company: String,
+  jobUrl: String,
+  scheduledApplyTime: Date,
+  actualAppliedAt: Date,
+  status: { type: String, enum: ['pending', 'applied', 'failed'], default: 'pending' },
+  reason: String,
 });
 
 const UserSchema = new Schema<IUser>({
@@ -60,8 +143,27 @@ const UserSchema = new Schema<IUser>({
   },
   resumes: [ResumeSchema],
   hrContacts: { type: Array, default: [] },
-  appliedJobs: { type: Array, default: [] },
+  appliedJobs: [AppliedJobSchema],
   savedJobs: { type: [String], default: [] },
+  scheduledJobs: [ScheduledJobSchema],
+  applicationAnalytics: {
+    totalApplications: { type: Number, default: 0 },
+    totalResponses: { type: Number, default: 0 },
+    responseRate: { type: Number, default: 0 },
+    bestApplyTimes: [{
+      hour: Number,
+      dayOfWeek: Number,
+      responseRate: Number,
+      applicationsCount: Number,
+    }],
+    lastUpdated: { type: Date, default: Date.now },
+  },
+  preferences: {
+    autoSchedule: { type: Boolean, default: false },
+    dailyApplyGoal: { type: Number, default: 100 },
+    maxApplicationsPerHour: { type: Number, default: 10 },
+    preferredApplyTimes: { type: [Number], default: [9, 14, 17] }, // hours
+  },
 }, { timestamps: true });
 
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

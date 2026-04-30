@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Briefcase, MapPin, Clock, ExternalLink, Filter, Search, X,
-  Bookmark, ChevronDown, Building2, Wifi, Globe, Copy, Check, Zap
+  Bookmark, ChevronDown, Building2, Wifi, Globe, Copy, Check, Zap,
+  CheckSquare, Download, Loader, ChevronRight
 } from 'lucide-react';
 
 type Job = {
@@ -25,6 +26,21 @@ type Job = {
   url: string;
   remote?: boolean;
   description?: string;
+};
+
+type QueuedJob = {
+  job: Job;
+  status: 'pending' | 'in-progress' | 'success' | 'failed' | 'captcha' | 'skipped';
+  logs: string[];
+  ats?: string;
+  coverLetter?: string;
+};
+
+type SkillGapAnalysis = {
+  matched_skills: string[];
+  missing_skills: string[];
+  estimated_learning_time: string;
+  priority_skills: string[];
 };
 
 const REMOTIVE_CATEGORIES = [
@@ -96,18 +112,6 @@ function getMinYears(title: string, description?: string): number {
   return -1;
 }
 
-// Returns true if job is restricted to Western countries only
-function isWesternOnly(location: string): boolean {
-  const loc = location.toLowerCase();
-  const westernOnly = ['usa only', 'us only', 'united states only', 'uk only', 'canada only', 'australia only', 'eu only', 'europe only'];
-  if (westernOnly.some((w) => loc.includes(w))) return true;
-  // Single-country restricted (not worldwide/remote/india)
-  const restricted = ['united states', 'usa', 'u.s.a', 'canada', 'australia', 'united kingdom', 'germany', 'france', 'netherlands'];
-  const isOpen = loc.includes('worldwide') || loc.includes('remote') || loc.includes('india') || loc.includes('global') || loc === '';
-  if (!isOpen && restricted.some((r) => loc === r || loc === r + '.')) return true;
-  return false;
-}
-
 function getDaysAgo(dateStr?: string, timestamp?: number): number {
   const date = dateStr ? new Date(dateStr) : timestamp ? new Date(timestamp * 1000) : null;
   if (!date) return 999;
@@ -147,6 +151,32 @@ function getJobBadges(job: Job): { label: string; color: string }[] {
   return badges;
 }
 
+// Compute match score: skill match (50%) + exp fit (30%) + remote preference (20%)
+function computeMatchScore(job: Job, mySkills: string[], userExpYears: number, workMode: string): number {
+  if (!mySkills.length) return 0;
+  const jobText = `${job.title} ${(job.tags || []).join(' ')} ${job.description || ''}`.toLowerCase();
+  const matched = mySkills.filter(s => jobText.includes(s.toLowerCase()));
+  const skillScore = matched.length / mySkills.length;
+
+  const required = getMinYears(job.title, job.description);
+  const expScore = required === -1 ? 0.7 : userExpYears >= required ? 1.0 : userExpYears + 2 >= required ? 0.5 : 0.1;
+
+  const loc = (job.candidate_required_location || '').toLowerCase();
+  const isRemote = job.remote || loc.includes('remote') || loc.includes('worldwide');
+  const remoteScore = workMode === 'all' ? 0.7 : (workMode === 'remote' && isRemote) || (workMode === 'onsite' && !isRemote) ? 1.0 : (workMode === 'india' && (loc.includes('india') || isRemote)) ? 1.0 : 0.3;
+
+  return Math.round((skillScore * 0.5 + expScore * 0.3 + remoteScore * 0.2) * 100);
+}
+
+// Get difficulty badge
+function getDifficultyBadge(job: Job, userExpYears: number) {
+  const required = getMinYears(job.title, job.description);
+  if (required === -1 || !userExpYears) return null;
+  if (userExpYears >= required) return { label: '🟢 Good Fit', color: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' };
+  if (userExpYears + 2 >= required) return { label: '🟡 Stretch', color: 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' };
+  return { label: '🔴 Too Advanced', color: 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' };
+}
+
 // Company logo with initial fallback
 const LOGO_COLORS = ['bg-violet-500','bg-emerald-500','bg-blue-500','bg-rose-500','bg-amber-500','bg-indigo-500','bg-teal-500','bg-pink-500'];
 function CompanyLogo({ logo, name }: { logo?: string; name: string }) {
@@ -169,12 +199,238 @@ function CompanyLogo({ logo, name }: { logo?: string; name: string }) {
   );
 }
 
+// --- Cover Letter Modal ---
+function CoverLetterModal({ job, onClose, userSkills, expYears }: {
+  job: Job;
+  onClose: () => void;
+  userSkills: string[];
+  expYears: number;
+}) {
+  const [letter, setLetter] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const generateLetter = async () => {
+      try {
+        const res = await fetch('/api/cover-letter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobTitle: job.title,
+            company: job.company_name,
+            description: job.description,
+            skills: userSkills,
+            expYears,
+          }),
+        });
+
+        if (!res.body) throw new Error('No response body');
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const text = decoder.decode(value);
+          const lines = text.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('0:"')) {
+              const content = line.slice(3, -1);
+              fullText += content;
+              setLetter(fullText);
+            }
+          }
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Cover letter generation failed:', err);
+        setLoading(false);
+      }
+    };
+
+    generateLetter();
+  }, [job, userSkills, expYears]);
+
+  const copyLetter = () => {
+    navigator.clipboard.writeText(letter);
+    alert('Cover letter copied to clipboard!');
+  };
+
+  const downloadLetter = () => {
+    const blob = new Blob([letter], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${job.company_name}-${job.title}-cover-letter.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">AI-Generated Cover Letter</h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{job.title} at {job.company_name}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 flex-shrink-0">
+            <X className="w-5 h-5 text-zinc-400" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader className="w-5 h-5 animate-spin text-emerald-500" />
+            <span className="ml-2 text-sm text-zinc-500">Generating cover letter...</span>
+          </div>
+        ) : (
+          <>
+            <textarea
+              readOnly
+              value={letter}
+              className="w-full h-48 p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-mono resize-none mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={copyLetter}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Copy className="w-4 h-4" /> Copy
+              </button>
+              <button
+                onClick={downloadLetter}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" /> Download
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Skill Gap Modal ---
+function SkillGapModal({ job, onClose, userSkills, expYears }: {
+  job: Job;
+  onClose: () => void;
+  userSkills: string[];
+  expYears: number;
+}) {
+  const [analysis, setAnalysis] = useState<SkillGapAnalysis | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchAnalysis = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/skill-gap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobTitle: job.title,
+            company: job.company_name,
+            description: job.description,
+            userSkills,
+            expYears,
+          }),
+        });
+        const data = await res.json();
+        setAnalysis(data);
+      } catch (err) {
+        console.error('Skill gap analysis failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnalysis();
+  }, [job, userSkills, expYears]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Skill Gap Analysis</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <X className="w-5 h-5 text-zinc-400" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader className="w-5 h-5 animate-spin text-emerald-500" />
+          </div>
+        ) : analysis ? (
+          <div className="space-y-4">
+            {analysis.matched_skills.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-2">✅ Your Skills</h4>
+                <div className="flex flex-wrap gap-2">
+                  {analysis.matched_skills.map((s) => (
+                    <span key={s} className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {analysis.missing_skills.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">📚 Missing Skills</h4>
+                <div className="flex flex-wrap gap-2">
+                  {analysis.missing_skills.map((s) => (
+                    <span key={s} className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {analysis.priority_skills.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">⭐ Priority Skills</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  {analysis.priority_skills.map((s) => (
+                    <li key={s} className="text-sm text-zinc-700 dark:text-zinc-300">{s}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {analysis.estimated_learning_time && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-sm text-blue-700 dark:text-blue-400">
+                  <span className="font-semibold">Learning time:</span> {analysis.estimated_learning_time}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">Could not load analysis</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Job Detail Drawer ---
-function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
+function JobDrawer({ job, onClose, savedIds, onToggleSave, userSkills, userExpYears }: {
   job: Job;
   onClose: () => void;
   savedIds: Set<string>;
   onToggleSave: (id: string) => void;
+  userSkills: string[];
+  userExpYears: number;
 }) {
   const id = String(job.id);
   const isSaved = savedIds.has(id);
@@ -182,6 +438,10 @@ function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
   const location = job.candidate_required_location || job.location || (job.remote ? 'Remote' : 'Worldwide');
   const type = job.job_type || job.job_types?.[0] || '';
   const logo = job.company_logo_url || job.company_logo;
+  const expReq = extractExpYears(job.title, job.description);
+  const diffBadge = getDifficultyBadge(job, userExpYears);
+  const [drawerTab, setDrawerTab] = useState<'description' | 'skillgap'>('description');
+  const [showSkillGap, setShowSkillGap] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -189,7 +449,7 @@ function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
       <div className="relative z-10 w-full max-w-2xl bg-white dark:bg-zinc-900 h-full flex flex-col shadow-2xl overflow-hidden">
         {/* Drawer header */}
         <div className="flex items-start justify-between p-6 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-4 flex-1">
             <div className="w-14 h-14 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
               <CompanyLogo logo={logo} name={job.company_name} />
             </div>
@@ -199,65 +459,246 @@ function JobDrawer({ job, onClose, savedIds, onToggleSave }: {
               <div className="flex flex-wrap gap-2 mt-2 text-xs text-zinc-400">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>
                 {type && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{type.replace('_', ' ')}</span>}
+                {expReq && <span className="flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">📚 {expReq}</span>}
                 {job.salary && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{job.salary}</span>}
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors flex-shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Badges */}
-        {badges.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-6 pt-4 shrink-0">
-            {badges.map((b) => (
-              <span key={b.label} className={`px-2.5 py-1 text-xs font-medium rounded-full border ${b.color}`}>{b.label}</span>
-            ))}
-          </div>
-        )}
+        {/* Badges & difficulty */}
+        <div className="px-6 pt-4 shrink-0 flex flex-wrap gap-2">
+          {diffBadge && (
+            <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${diffBadge.color}`}>
+              {diffBadge.label}
+            </span>
+          )}
+          {badges.map((b) => (
+            <span key={b.label} className={`px-2.5 py-1 text-xs font-medium rounded-full border ${b.color}`}>{b.label}</span>
+          ))}
+        </div>
 
-        {/* Description */}
+        {/* Tab bar */}
+        <div className="flex gap-1 px-6 pt-4 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
+          <button
+            onClick={() => setDrawerTab('description')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              drawerTab === 'description'
+                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700'
+            }`}
+          >
+            Job Description
+          </button>
+          <button
+            onClick={() => setDrawerTab('skillgap')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              drawerTab === 'skillgap'
+                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700'
+            }`}
+          >
+            Skill Gap
+          </button>
+        </div>
+
+        {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {job.description ? (
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_strong]:font-semibold"
-              dangerouslySetInnerHTML={{ __html: job.description }}
-            />
+          {drawerTab === 'description' ? (
+            <>
+              {job.description ? (
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_strong]:font-semibold"
+                  dangerouslySetInnerHTML={{ __html: job.description }}
+                />
+              ) : (
+                <p className="text-sm text-zinc-400">No description available.</p>
+              )}
+            </>
           ) : (
-            <p className="text-sm text-zinc-400">No description available.</p>
+            <div className="space-y-3">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Click "Analyze" to get an AI-powered skill gap analysis comparing your skills to this role.
+              </p>
+              <button
+                onClick={() => setShowSkillGap(true)}
+                className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Zap className="w-4 h-4" /> Analyze Skill Gap
+              </button>
+            </div>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-6 border-t border-zinc-200 dark:border-zinc-700 shrink-0">
-          <a
-            href={job.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            Apply Now <ExternalLink className="w-4 h-4" />
-          </a>
+        <div className="space-y-2 p-6 border-t border-zinc-200 dark:border-zinc-700 shrink-0">
+          <div className="flex gap-3">
+            <a
+              href={job.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Apply Now <ExternalLink className="w-4 h-4" />
+            </a>
+            <button
+              onClick={() => onToggleSave(id)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
+                isSaved
+                  ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700'
+                  : 'border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+              }`}
+            >
+              <Bookmark className="w-4 h-4" fill={isSaved ? 'currentColor' : 'none'} />
+              {isSaved ? 'Saved' : 'Save'}
+            </button>
+          </div>
           <button
-            onClick={() => onToggleSave(id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
-              isSaved
-                ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700'
-                : 'border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-            }`}
+            onClick={() => setShowCoverLetter(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 text-sm font-medium rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900/30 transition-colors"
           >
-            <Bookmark className="w-4 h-4" fill={isSaved ? 'currentColor' : 'none'} />
-            {isSaved ? 'Saved' : 'Save'}
+            ✍️ Generate Cover Letter
           </button>
         </div>
+
+        {showSkillGap && (
+          <SkillGapModal
+            job={job}
+            onClose={() => setShowSkillGap(false)}
+            userSkills={userSkills}
+            expYears={userExpYears}
+          />
+        )}
+
+        {showCoverLetter && (
+          <CoverLetterModal
+            job={job}
+            onClose={() => setShowCoverLetter(false)}
+            userSkills={userSkills}
+            expYears={userExpYears}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Bulk Apply Panel ---
+function BulkApplyPanel({ queue, running, onStart, onClose }: {
+  queue: QueuedJob[];
+  running: boolean;
+  onStart: () => void;
+  onClose: () => void;
+}) {
+  const successCount = queue.filter(q => q.status === 'success').length;
+  const failedCount = queue.filter(q => q.status === 'failed').length;
+  const captchaCount = queue.filter(q => q.status === 'captcha').length;
+  const currentJob = queue.find(q => q.status === 'in-progress');
+  const pendingCount = queue.filter(q => q.status === 'pending').length;
+
+  return (
+    <div className="fixed right-0 top-0 h-screen w-96 bg-white dark:bg-zinc-900 shadow-2xl z-40 flex flex-col border-l border-zinc-200 dark:border-zinc-700">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700 shrink-0">
+        <h3 className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
+          <Zap className="w-5 h-5 text-emerald-600" /> Apply Queue
+        </h3>
+        <button onClick={onClose} className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <X className="w-5 h-5 text-zinc-400" />
+        </button>
+      </div>
+
+      {/* Progress */}
+      <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 shrink-0 space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+            {queue.length === 0 ? 'No jobs queued' : `${successCount + failedCount + captchaCount}/${queue.length} done`}
+          </span>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-emerald-600">✅ {successCount}</span>
+            <span className="text-red-600">❌ {failedCount}</span>
+            {captchaCount > 0 && <span className="text-amber-600">⚠️ {captchaCount}</span>}
+          </div>
+        </div>
+        <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-emerald-500 to-green-600 transition-all duration-300"
+            style={{ width: `${queue.length === 0 ? 0 : ((successCount + failedCount + captchaCount) / queue.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Queue items */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        {queue.length === 0 ? (
+          <p className="text-sm text-zinc-400 text-center py-8">Select jobs to add to queue</p>
+        ) : (
+          <>
+            {currentJob && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-3 mb-2">
+                <div className="flex items-start gap-2 mb-1">
+                  <span className="animate-spin inline-block w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-blue-900 dark:text-blue-300 truncate">{currentJob.job.title}</p>
+                    <p className="text-xs text-blue-700 dark:text-blue-400">{currentJob.job.company_name}</p>
+                  </div>
+                </div>
+                {currentJob.logs.length > 0 && (
+                  <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 rounded px-2 py-1 mt-2 max-h-16 overflow-y-auto">
+                    {currentJob.logs[currentJob.logs.length - 1]}
+                  </div>
+                )}
+              </div>
+            )}
+            {queue.filter(q => q.status !== 'in-progress').slice(0, 5).map((item) => (
+              <div key={`${item.job.id}`} className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 border border-zinc-200 dark:border-zinc-700">
+                <div className="flex items-start gap-2">
+                  <span className="text-xs font-semibold flex-shrink-0 mt-0.5">
+                    {item.status === 'success' ? '✅' : item.status === 'failed' ? '❌' : item.status === 'captcha' ? '⚠️' : item.status === 'skipped' ? '⏭️' : '⏳'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">{item.job.title}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{item.job.company_name}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {queue.length > 6 && (
+              <p className="text-xs text-zinc-400 text-center py-2">+{queue.length - 6} more...</p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-2 p-4 border-t border-zinc-200 dark:border-zinc-700 shrink-0">
+        <button
+          onClick={onStart}
+          disabled={running || queue.length === 0}
+          className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          {running ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Running...
+            </>
+          ) : (
+            <>
+              <ChevronRight className="w-4 h-4" />
+              Start Apply
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
 }
 
 // --- Job Card ---
-function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply, matchingSkills }: {
+function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply, matchingSkills, matchScore, selectMode, isSelected, onToggleSelect }: {
   job: Job;
   source: string;
   savedIds: Set<string>;
@@ -265,6 +706,10 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply, mat
   onOpen: (job: Job) => void;
   onAutoApply?: (job: Job) => void;
   matchingSkills: string[];
+  matchScore: number;
+  selectMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const id = String(job.id);
   const isSaved = savedIds.has(id);
@@ -282,10 +727,28 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply, mat
   const tags = job.tags?.slice(0, 3) || [];
   const badges = getJobBadges(job);
 
+  // Extract experience level from job
+  const expReq = extractExpYears(job.title, job.description);
+
   return (
-    <div className="group bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-200 cursor-pointer"
-      onClick={() => onOpen(job)}>
-      <div className="flex items-start gap-4">
+    <div className={`group bg-white dark:bg-zinc-800 rounded-xl border transition-all duration-200 relative ${
+      selectMode ? 'cursor-pointer' : 'cursor-pointer hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-600'
+    } ${isSelected ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 shadow-md' : 'border-zinc-200 dark:border-zinc-700'} p-5`}
+      onClick={() => selectMode ? onToggleSelect(id) : onOpen(job)}>
+
+      {/* Checkbox overlay in select mode */}
+      {selectMode && (
+        <div className="absolute top-3 left-3 z-10">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(id)}
+            onClick={(e) => e.stopPropagation()}
+            className="w-5 h-5 rounded border-2 border-emerald-500 cursor-pointer accent-emerald-500"
+          />
+        </div>
+      )}
+      <div className={`flex items-start gap-4 ${selectMode ? 'pl-6' : ''}`}>
         <div className="w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
           <CompanyLogo logo={logo} name={job.company_name} />
         </div>
@@ -310,7 +773,7 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply, mat
             <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>
             {type && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{type.replace('_', ' ')}</span>}
             {postedAt && <span>{postedAt}</span>}
-            {(() => { const exp = extractExpYears(job.title, job.description); return exp ? <span className="font-bold text-zinc-600 dark:text-zinc-300">📅 {exp}</span> : null; })()}
+            {expReq && <span className="font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">📚 {expReq}</span>}
           </div>
 
           {/* Smart badges */}
@@ -336,16 +799,20 @@ function JobCard({ job, source, savedIds, onToggleSave, onOpen, onAutoApply, mat
               ))}
             </div>
           )}
-          {matchingSkills.length > 0 && (
+          {matchScore > 0 && (
             <div className="mt-2 flex items-center gap-1.5">
               <div className="flex-1 h-1.5 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (matchingSkills.length / Math.max(tags.length, 1)) * 100)}%` }}
+                  className={`h-full rounded-full transition-all ${
+                    matchScore >= 70 ? 'bg-emerald-500' : matchScore >= 40 ? 'bg-amber-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${matchScore}%` }}
                 />
               </div>
-              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                {matchingSkills.length} skill{matchingSkills.length > 1 ? 's' : ''} match
+              <span className={`text-xs font-bold flex-shrink-0 ${
+                matchScore >= 70 ? 'text-emerald-600 dark:text-emerald-400' : matchScore >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+                {matchScore}%
               </span>
             </div>
           )}
@@ -404,23 +871,30 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [source, setSource] = useState<'all' | 'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok' | 'jsearch'>('all');
+  const [source, setSource] = useState<'all' | 'linkedin' | 'remotive' | 'arbeitnow' | 'jobicy' | 'themuse' | 'remoteok' | 'jsearch' | 'for-you'>('all');
   const [search, setSearch] = useState('');
   const [category] = useState('software-dev');
   const [jobType, setJobType] = useState('');
-  const [workMode, setWorkMode] = useState<'all' | 'remote' | 'onsite'>('all');
-  const [sortBy, setSortBy] = useState<'newest' | 'salary'>('newest');
+  const [workMode, setWorkMode] = useState<'all' | 'remote' | 'onsite' | 'india'>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'salary' | 'match'>('newest');
   const [total, setTotal] = useState(0);
-  const [expLevel, setExpLevel] = useState('');
+  const [expLevel, setExpLevel] = useState<'' | 'fresher' | '1-2' | '3-5' | '5+' | '10+'>('');
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [mySkills, setMySkills] = useState<string[]>([]);
   const [mySkillsInput, setMySkillsInput] = useState('');
+  const [userExpYears, setUserExpYears] = useState(0);
+  const [queue, setQueue] = useState<QueuedJob[]>([]);
+  const [showQueue, setShowQueue] = useState(false);
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [dailyApplied, setDailyApplied] = useState(0);
   const router = useRouter();
 
-  // Load my skills from localStorage
+  // Load my skills, experience, and daily count from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('my_skills');
     if (saved) {
@@ -428,6 +902,14 @@ export default function JobsPage() {
       setMySkills(parsed);
       setMySkillsInput(parsed.join(', '));
     }
+    const expYears = parseInt(localStorage.getItem('user_exp_years') || '0', 10);
+    setUserExpYears(expYears);
+
+    // Load today's applied count
+    const applied = JSON.parse(localStorage.getItem('applied_jobs') || '[]');
+    const today = new Date().toDateString();
+    const todayCount = applied.filter((a: any) => new Date(a.appliedAt || 0).toDateString() === today).length;
+    setDailyApplied(todayCount);
   }, []);
 
   const saveMySkills = (val: string) => {
@@ -452,6 +934,121 @@ export default function JobsPage() {
     });
     router.push(`/apply?${params.toString()}`);
   };
+
+  const toggleJobSelection = (id: string) => {
+    setSelectedJobIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const addSelectedToQueue = () => {
+    const appliedUrls = new Set(JSON.parse(localStorage.getItem('applied_jobs') || '[]').map((a: any) => a.url));
+    const toAdd = displayedJobs.filter(j => selectedJobIds.has(String(j.id)) && !appliedUrls.has(j.url));
+    setQueue(prev => [...prev, ...toAdd.map(j => ({ job: j, status: 'pending' as const, logs: [] }))]);
+    setSelectedJobIds(new Set());
+    setSelectMode(false);
+    setShowQueue(true);
+  };
+
+  const addTopMatchesToQueue = (n: number) => {
+    const appliedUrls = new Set(JSON.parse(localStorage.getItem('applied_jobs') || '[]').map((a: any) => a.url));
+    const topJobs = [...displayedJobs]
+      .filter(j => !appliedUrls.has(j.url) && !queue.some(q => q.job.url === j.url))
+      .sort((a, b) => computeMatchScore(b, mySkills, userExpYears, workMode) - computeMatchScore(a, mySkills, userExpYears, workMode))
+      .slice(0, n);
+    setQueue(prev => [...prev, ...topJobs.map(j => ({ job: j, status: 'pending' as const, logs: [] }))]);
+    setShowQueue(true);
+  };
+
+  const startBulkApply = async () => {
+    setBulkRunning(true);
+    const pending = queue.filter(q => q.status === 'pending');
+    const userProfile = JSON.parse(localStorage.getItem('user_profile') || '{}');
+    const resumeContent = localStorage.getItem('user_resume') || '';
+    const appliedUrls = new Set(JSON.parse(localStorage.getItem('applied_jobs') || '[]').map((a: any) => a.url || ''));
+
+    try {
+      const res = await fetch('/api/bulk-apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobs: pending.map(q => ({
+            id: String(q.job.id),
+            url: q.job.url,
+            title: q.job.title,
+            company: q.job.company_name,
+            description: q.job.description || '',
+          })),
+          profile: userProfile,
+          resumeContent,
+          autoSubmit: true,
+          alreadyAppliedUrls: Array.from(appliedUrls),
+        }),
+      });
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() || '';
+
+        for (const block of blocks) {
+          if (!block.startsWith('data:')) continue;
+          try {
+            const event = JSON.parse(block.slice(5).trim());
+
+            if (event.type === 'job_start') {
+              setQueue(prev =>
+                prev.map(q => q.job.id === event.jobId ? { ...q, status: 'in-progress' as const } : q)
+              );
+            } else if (event.type === 'job_log') {
+              setQueue(prev =>
+                prev.map(q => q.job.id === event.jobId ? { ...q, logs: [...q.logs, event.message] } : q)
+              );
+            } else if (event.type === 'job_done') {
+              setQueue(prev =>
+                prev.map(q => q.job.id === event.jobId ? { ...q, status: event.status, ats: event.ats, coverLetter: event.coverLetter } : q)
+              );
+
+              if (event.status === 'success') {
+                setDailyApplied(n => n + 1);
+                const applied = JSON.parse(localStorage.getItem('applied_jobs') || '[]');
+                const job = queue.find(q => q.job.id === event.jobId)?.job;
+                if (job) {
+                  applied.push({
+                    id: event.jobId,
+                    url: job.url,
+                    jobTitle: job.title,
+                    companyName: job.company_name,
+                    status: 'Applied',
+                    appliedAt: new Date().toISOString(),
+                  });
+                  localStorage.setItem('applied_jobs', JSON.stringify(applied));
+                }
+              }
+            } else if (event.type === 'batch_done') {
+              setBulkRunning(false);
+            }
+          } catch { /* ignore parse errors */ }
+        }
+      }
+    } catch (err) {
+      console.error('Bulk apply failed:', err);
+      setBulkRunning(false);
+    }
+  };
+
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -476,6 +1073,7 @@ export default function JobsPage() {
 
   const fetchJobs = useCallback(async (pageNum = 1, append = false) => {
     const isJSearch = source === 'jsearch';
+    const isForYou = source === 'for-you';
     const effectiveSearch = isJSearch ? (search || 'software developer frontend fullstack') : search;
 
     // Check cache for JSearch
@@ -497,16 +1095,26 @@ export default function JobsPage() {
     else setLoading(true);
 
     try {
-      const params = new URLSearchParams({ source, page: String(pageNum) });
-      if (effectiveSearch) params.set('search', effectiveSearch);
-      if (category) params.set('category', category);
-      if (jobType) params.set('job_type', jobType);
-      if (workMode === 'remote') params.set('remote', 'true');
-      if (workMode === 'onsite') params.set('onsite', 'true');
+      let res;
+      if (isForYou) {
+        // Fetch recommendations
+        const params = new URLSearchParams({
+          skills: mySkills.join(','),
+          experience: String(userExpYears),
+        });
+        res = await fetch(`/api/recommendations?${params}`);
+      } else {
+        const params = new URLSearchParams({ source, page: String(pageNum) });
+        if (effectiveSearch) params.set('search', effectiveSearch);
+        if (category) params.set('category', category);
+        if (jobType) params.set('job_type', jobType);
+        if (workMode === 'remote') params.set('remote', 'true');
+        if (workMode === 'onsite') params.set('onsite', 'true');
+        res = await fetch(`/api/jobs?${params}`);
+      }
 
-      const res = await fetch(`/api/jobs?${params}`);
       const data = await res.json();
-      const fetched: Job[] = data.jobs || [];
+      const fetched: Job[] = (isForYou ? data.recommendations : data.jobs) || [];
 
       // Cache JSearch results
       if (isJSearch && !append) {
@@ -523,7 +1131,7 @@ export default function JobsPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [source, search, category, jobType, workMode]);
+  }, [source, search, category, jobType, workMode, mySkills, userExpYears]);
 
   // Debounce search — skip auto-fetch for JSearch (manual only)
   useEffect(() => {
@@ -554,41 +1162,117 @@ export default function JobsPage() {
     setWorkMode('all');
     setSortBy('newest');
     setExpLevel('');
+    setPage(1);
+    setShowFilters(false);
   };
 
   const hasActiveFilters = search || category || jobType || workMode !== 'all' || expLevel;
 
-  // Sort + filter displayed jobs
+  // Filter jobs by location (Remote / On-site / India) & experience level
   const displayedJobs = [...jobs]
-    .filter((j) => showSavedOnly ? savedIds.has(String(j.id)) : true)
-    .filter((j) => {
-      if (!expLevel) return true;
-      const minYrs = getMinYears(j.title, j.description);
-      const required = parseInt(expLevel, 10);
-      if (expLevel === '0') return minYrs === 0 || minYrs === -1;
-      if (minYrs === -1) return false;
-      return minYrs >= required && minYrs < required + (required >= 5 ? 99 : 2);
+    .filter(job => showSavedOnly ? savedIds.has(String(job.id)) : true)
+    .filter((job) => {
+      // Location filter
+      const location = (job.candidate_required_location || job.location || '').toLowerCase();
+
+      let locationMatch = true;
+      if (workMode === 'remote') locationMatch = job.remote === true || location.includes('remote') || location.includes('worldwide');
+      else if (workMode === 'onsite') locationMatch = job.remote === false && !location.includes('remote');
+      else if (workMode === 'india') {
+        // India jobs: remote jobs that work globally + India-specific + companies known to hire India
+        locationMatch = location.includes('india') ||
+                       location.includes('worldwide') ||
+                       location.includes('remote') ||
+                       location.includes('global') ||
+                       location.includes('anywhere');
+      }
+
+      // Experience filter using numeric comparison
+      let expMatch = true;
+      if (expLevel) {
+        const minYrs = getMinYears(job.title, job.description);
+        const text = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+
+        if (expLevel === 'fresher') {
+          expMatch = (minYrs === 0 || minYrs === -1) && (text.includes('fresher') || text.includes('intern') || text.includes('entry'));
+        } else if (expLevel === '1-2') {
+          expMatch = minYrs >= 0 && minYrs <= 2;
+        } else if (expLevel === '3-5') {
+          expMatch = minYrs >= 3 && minYrs <= 5;
+        } else if (expLevel === '5+') {
+          expMatch = minYrs >= 5;
+        } else if (expLevel === '10+') {
+          expMatch = minYrs >= 10;
+        }
+      }
+
+      return locationMatch && expMatch;
     })
     .sort((a, b) => {
       if (sortBy === 'salary') {
-        const aHas = a.salary ? 1 : 0;
-        const bHas = b.salary ? 1 : 0;
-        return bHas - aHas;
+        const aSalary = parseInt(a.salary?.replace(/\D/g, '') || '0', 10);
+        const bSalary = parseInt(b.salary?.replace(/\D/g, '') || '0', 10);
+        return bSalary - aSalary;
+      } else if (sortBy === 'match') {
+        const scoreA = computeMatchScore(a, mySkills, userExpYears, workMode);
+        const scoreB = computeMatchScore(b, mySkills, userExpYears, workMode);
+        return scoreB - scoreA;
       }
-      return getDaysAgo(a.publication_date, a.created_at) - getDaysAgo(b.publication_date, b.created_at);
+      // newest (default)
+      return (b.created_at || 0) - (a.created_at || 0);
     });
 
   return (
     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-900">
+      {/* Smart Recommendations Banner */}
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-emerald-200 dark:border-emerald-800 px-6 py-3">
+        <div className="max-w-5xl mx-auto flex items-center gap-3 text-sm flex-wrap">
+          <Zap className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <p className="text-emerald-700 dark:text-emerald-300">
+            <span className="font-semibold">Filters:</span>
+            <span className="ml-2">
+              {workMode === 'all' && '🌐 All locations'}
+              {workMode === 'remote' && '🏠 Remote'}
+              {workMode === 'onsite' && '🏢 On-site'}
+              {workMode === 'india' && '🇮🇳 India'}
+            </span>
+            {expLevel && (
+              <span className="ml-2">
+                {expLevel === 'fresher' && '👶 Fresher'}
+                {expLevel === '1-2' && '📈 1-2 Years'}
+                {expLevel === '3-5' && '💼 3-5 Years'}
+                {expLevel === '5+' && '🎯 5+ Years'}
+                {expLevel === '10+' && '🌟 10+ Years'}
+              </span>
+            )}
+            {displayedJobs.length > 0 && <span className="ml-2 font-semibold text-emerald-800 dark:text-emerald-200">({displayedJobs.length} jobs)</span>}
+          </p>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 px-6 py-4 shrink-0">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Job Board</h1>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
                 {loading ? 'Loading...' : `${displayedJobs.length} jobs${total > displayedJobs.length ? ` of ${total}` : ''}`}
               </p>
+              {/* Daily progress bar */}
+              {dailyApplied > 0 && (
+                <div className="flex items-center gap-3 mt-2.5">
+                  <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Daily Goal:</span>
+                  <div className="w-40 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${dailyApplied >= 100 ? 'bg-emerald-500' : 'bg-violet-500'}`}
+                      style={{ width: `${Math.min(100, (dailyApplied / 100) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{dailyApplied}/100</span>
+                  {dailyApplied >= 100 && <span className="text-xs text-emerald-600 dark:text-emerald-400">🎉 Goal reached!</span>}
+                </div>
+              )}
             </div>
             {/* My Skills input */}
             <div className="flex-1 max-w-sm">
@@ -613,15 +1297,53 @@ export default function JobsPage() {
                 <Bookmark className="w-3.5 h-3.5" fill={showSavedOnly ? 'currentColor' : 'none'} />
                 Saved {savedIds.size > 0 && `(${savedIds.size})`}
               </button>
+
+              {/* Select mode toggle */}
+              <button
+                onClick={() => { setSelectMode(!selectMode); if (selectMode) setSelectedJobIds(new Set()); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  selectMode
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-700'
+                    : 'border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                {selectMode ? 'Selecting...' : 'Select'}
+              </button>
+
+              {/* Apply Queue button */}
+              <button
+                onClick={() => setShowQueue(true)}
+                className="relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+              >
+                <Zap className="w-3.5 h-3.5" /> Queue
+                {queue.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-emerald-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {queue.filter(q => q.status === 'pending').length}
+                  </span>
+                )}
+              </button>
+
+              {/* Auto-Select 100 */}
+              {mySkills.length > 0 && (
+                <button
+                  onClick={() => addTopMatchesToQueue(100)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+                >
+                  ⭐ Auto-Select 100
+                </button>
+              )}
+
               {/* Sort */}
               <div className="relative">
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'newest' | 'salary')}
+                  onChange={(e) => setSortBy(e.target.value as 'newest' | 'salary' | 'match')}
                   className="appearance-none pl-3 pr-8 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
                   <option value="newest">Newest First</option>
                   <option value="salary">Salary Listed</option>
+                  {mySkills.length > 0 && <option value="match">Best Match</option>}
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-400 pointer-events-none" />
               </div>
@@ -631,7 +1353,9 @@ export default function JobsPage() {
           {/* Source tabs */}
           <div className="flex flex-wrap gap-2 mt-4">
             {([
+              ...(mySkills.length > 0 ? [{ id: 'for-you', label: '⭐ For You' }] : []),
               { id: 'all', label: '🌐 All Jobs' },
+              { id: 'linkedin', label: '💼 LinkedIn' },
               { id: 'jobicy', label: 'Jobicy' },
               { id: 'arbeitnow', label: 'Arbeitnow' },
               { id: 'themuse', label: 'The Muse' },
@@ -641,7 +1365,7 @@ export default function JobsPage() {
             ] as const).map((s) => (
               <button
                 key={s.id}
-                onClick={() => { setSource(s.id); setJobType(''); setWorkMode(s.id === 'jsearch' ? 'onsite' : 'all'); }}
+                onClick={() => { setSource(s.id as any); setJobType(''); setWorkMode(s.id === 'jsearch' ? 'onsite' : 'all'); }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   source === s.id
                     ? 'bg-emerald-600 text-white'
@@ -654,18 +1378,37 @@ export default function JobsPage() {
           </div>
 
           {/* Work mode pills */}
-          <div className="flex gap-2 mt-3">
-            {(['all', 'remote', 'onsite'] as const).map((mode) => (
+          <div className="flex gap-2 mt-3 flex-wrap">
+            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 self-center">Location:</span>
+            {(['all', 'remote', 'onsite', 'india'] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setWorkMode(mode)}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   workMode === mode
-                    ? 'bg-zinc-800 text-white border-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-100'
+                    ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500'
                     : 'border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400'
                 }`}
               >
-                {mode === 'all' ? '🌐 All' : mode === 'remote' ? '🏠 Remote' : '🏢 On-site'}
+                {mode === 'all' ? '🌐 All' : mode === 'remote' ? '🏠 Remote' : mode === 'onsite' ? '🏢 On-site' : '🇮🇳 India'}
+              </button>
+            ))}
+          </div>
+
+          {/* Experience level pills */}
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 self-center">Experience:</span>
+            {(['fresher', '1-2', '3-5', '5+', '10+'] as const).map((level) => (
+              <button
+                key={level}
+                onClick={() => setExpLevel(expLevel === level ? '' : level)}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  expLevel === level
+                    ? 'bg-blue-600 text-white border-blue-600 dark:bg-blue-500 dark:border-blue-500'
+                    : 'border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400'
+                }`}
+              >
+                {level === 'fresher' ? '👶 Fresher' : level === '1-2' ? '📈 1-2 Yrs' : level === '3-5' ? '💼 3-5 Yrs' : level === '5+' ? '🎯 5+ Yrs' : '🌟 10+ Yrs'}
               </button>
             ))}
           </div>
@@ -765,19 +1508,85 @@ export default function JobsPage() {
                     onOpen={setSelectedJob}
                     onAutoApply={source !== 'remotive' ? handleAutoApply : undefined}
                     matchingSkills={getMatchingSkills(job)}
+                    matchScore={computeMatchScore(job, mySkills, userExpYears, workMode)}
+                    selectMode={selectMode}
+                    isSelected={selectedJobIds.has(String(job.id))}
+                    onToggleSelect={toggleJobSelection}
                   />
                 ))}
               </div>
 
-              {/* Load more */}
-              {hasMore && !showSavedOnly && (
-                <div className="flex justify-center mt-6">
+              {/* Load more & Pagination Info */}
+              {(hasMore || total >= 20) && !showSavedOnly && (
+                <div className="flex flex-col items-center gap-4 mt-8">
+                  <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Showing {displayedJobs.length} of {total} jobs
+                    {total > 0 && (
+                      <span className="ml-2 text-xs bg-zinc-100 dark:bg-zinc-700 px-3 py-1 rounded-full">
+                        Page {page}
+                      </span>
+                    )}
+                  </div>
+                  {hasMore && (
+                    <button
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                      className="px-6 py-2.5 text-sm font-medium rounded-lg border border-emerald-300 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                          Loading More...
+                        </>
+                      ) : (
+                        <>
+                          ↓ Load More Jobs
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Page Navigation */}
+              {!showSavedOnly && total >= 20 && (
+                <div className="flex justify-center items-center gap-2 mt-8">
                   <button
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    className="px-6 py-2.5 text-sm font-medium rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                    onClick={() => page > 1 && (setPage(page - 1), fetchJobs(page - 1, false))}
+                    disabled={page === 1}
+                    className="px-3 py-1.5 text-sm font-medium rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    {loadingMore ? 'Loading...' : 'Load More Jobs'}
+                    ← Previous
+                  </button>
+
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, Math.ceil(total / 20)) }).map((_, i) => {
+                      const pageNum = i + 1;
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => {
+                            setPage(pageNum);
+                            fetchJobs(pageNum, false);
+                          }}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                            page === pageNum
+                              ? 'bg-emerald-600 text-white'
+                              : 'border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => !hasMore || (setPage(page + 1), fetchJobs(page + 1, false))}
+                    disabled={!hasMore}
+                    className="px-3 py-1.5 text-sm font-medium rounded-lg border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Next →
                   </button>
                 </div>
               )}
@@ -793,6 +1602,37 @@ export default function JobsPage() {
           onClose={() => setSelectedJob(null)}
           savedIds={savedIds}
           onToggleSave={toggleSave}
+          userSkills={mySkills}
+          userExpYears={userExpYears}
+        />
+      )}
+
+      {/* Floating action bar when jobs selected */}
+      {selectMode && selectedJobIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-zinc-900 dark:bg-black text-white rounded-2xl shadow-2xl px-6 py-3 flex items-center gap-4">
+          <span className="font-semibold text-sm">{selectedJobIds.size} selected</span>
+          <button
+            onClick={addSelectedToQueue}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Zap className="w-4 h-4" /> Add to Queue
+          </button>
+          <button
+            onClick={() => { setSelectMode(false); setSelectedJobIds(new Set()); }}
+            className="text-zinc-400 hover:text-white text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Bulk apply panel */}
+      {showQueue && (
+        <BulkApplyPanel
+          queue={queue}
+          running={bulkRunning}
+          onStart={startBulkApply}
+          onClose={() => setShowQueue(false)}
         />
       )}
     </div>
